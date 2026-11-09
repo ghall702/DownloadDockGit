@@ -1,0 +1,136 @@
+<Window x:Class="DownloadDock.Settings.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DownloadDock.Settings"
+        x:ClassModifier="internal"
+        Title="DownloadDock Settings"
+        Width="560" SizeToContent="Height"
+        MinWidth="480"
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="True"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        FontSize="14">
+    <Window.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,18,0,8" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,12" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="24,16,24,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Settings" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI" />
+
+        <StackPanel Grid.Row="1">
+            <!-- Folder -->
+            <TextBlock Text="Downloads folder" Style="{StaticResource SectionHeader}" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding EffectiveFolder, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center" AutomationProperties.Name="Downloads folder" />
+                        <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseCommand}" />
+                        <Button Grid.Column="2" Content="Default" Margin="8,0,0,0" Command="{Binding ResetFolderCommand}" ToolTip="Use the Windows Downloads folder" />
+                    </Grid>
+                    <TextBlock Margin="0,6,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Hint}">
+                                <Setter Property="Text" Value="Custom folder." />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding UsesDefaultFolder}" Value="True">
+                                        <Setter Property="Text" Value="Using the Windows Downloads folder (follows OneDrive / drive redirection)." />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding FolderIsValid}" Value="False">
+                                        <Setter Property="Text" Value="This folder doesn't exist." />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <CheckBox Margin="0,10,0,0" Content="Include files in subfolders" IsChecked="{Binding IncludeSubfolders}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Fan -->
+            <TextBlock Text="Fan" Style="{StaticResource SectionHeader}" />
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="48" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Visible files" VerticalAlignment="Center" />
+                    <Slider Grid.Column="1" Minimum="{Binding MinVisibleFiles}" Maximum="{Binding MaxVisibleFiles}" Value="{Binding VisibleFiles}"
+                            IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" AutomationProperties.Name="Visible files" />
+                    <TextBlock Grid.Column="2" Text="{Binding VisibleFiles}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+
+                    <TextBlock Grid.Row="1" Text="Thumbnail size" VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <Slider Grid.Row="1" Grid.Column="1" Minimum="{Binding MinThumbnailSize}" Maximum="{Binding MaxThumbnailSize}" Value="{Binding ThumbnailSize}"
+                            IsSnapToTickEnabled="True" TickFrequency="8" VerticalAlignment="Center" Margin="0,12,0,0" AutomationProperties.Name="Thumbnail size" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding ThumbnailSize}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,12,0,0" />
+
+                    <TextBlock Grid.Row="2" Text="Animation speed" VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <ComboBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding AnimationSpeeds}" SelectedItem="{Binding AnimationSpeed}" Margin="0,12,0,0" AutomationProperties.Name="Animation speed" />
+
+                    <TextBlock Grid.Row="3" Text="Theme" VerticalAlignment="Center" Margin="0,12,0,0" />
+                    <ComboBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" Margin="0,12,0,0" AutomationProperties.Name="Theme" />
+                </Grid>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <CheckBox Content="Show file extensions" IsChecked="{Binding ShowFileExtensions}" />
+                    <CheckBox Margin="0,8,0,0" Content="Close the fan after dragging a file out" IsChecked="{Binding CloseAfterDrop}" />
+                </StackPanel>
+            </Border>
+
+            <!-- System -->
+            <TextBlock Text="System" Style="{StaticResource SectionHeader}" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" />
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource Hint}"
+                               Text="To keep the icon visible next to Wi-Fi, volume and battery, turn DownloadDock on under Settings › Personalization › Taskbar › Other system tray icons, or drag it out of the ^ overflow onto the taskbar." />
+                    <Button Margin="0,10,0,0" HorizontalAlignment="Left" Content="Open taskbar settings" Click="OpenTaskbarSettings_Click" />
+                    <Button Margin="0,8,0,0" HorizontalAlignment="Left" Content="Clear thumbnail cache" Command="{Binding ClearCacheCommand}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Save" MinWidth="96" IsDefault="True" Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />
+            <Button Content="Cancel" MinWidth="96" Margin="8,0,0,0" IsCancel="True" Command="{Binding CancelCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>DownloadDock</AssemblyName>
+    <RootNamespace>DownloadDock</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\DownloadDock.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>AnyCPU;x64</Platforms>
+    <!-- WPF Fluent theme (ThemeMode) is marked experimental; it is used only for the Settings window. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TieredPGO>true</TieredPGO>
+    <!-- Low idle memory: workstation non-concurrent GC is plenty for a tray utility. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <!-- Release publishing: one self-contained x64 executable. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>embedded</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Native PDFium (BSD-3) – renders PDF first pages without Acrobat. -->
+    <PackageReference Include="bblanchon.PDFium.Win32" Version="157.0.8100" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DownloadDock.Core\DownloadDock.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\DownloadDock.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DownloadDock.Windows.Tests" />
+  </ItemGroup>
+
+</Project>

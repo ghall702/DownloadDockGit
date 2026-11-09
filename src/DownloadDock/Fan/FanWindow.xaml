@@ -1,0 +1,32 @@
+<Window x:Class="DownloadDock.Fan.FanWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:ClassModifier="internal"
+        Title="DownloadDock"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="True"
+        SizeToContent="Manual"
+        Width="10" Height="10"
+        Left="-32000" Top="-32000"
+        FocusVisualStyle="{x:Null}"
+        UseLayoutRounding="False"
+        TextOptions.TextRenderingMode="Grayscale"
+        RenderOptions.ClearTypeHint="Auto">
+    <Window.Resources>
+        <!-- Replaced at runtime by ApplyTheme(); defaults are the light theme. -->
+        <SolidColorBrush x:Key="Fan.LabelBackground" Color="#F2F9F9F9" />
+        <SolidColorBrush x:Key="Fan.LabelForeground" Color="#FF1A1A1A" />
+        <SolidColorBrush x:Key="Fan.LabelBorder" Color="#1F000000" />
+        <SolidColorBrush x:Key="Fan.CardBorder" Color="#26000000" />
+        <SolidColorBrush x:Key="Fan.PlaceholderBackground" Color="#FFFFFFFF" />
+        <SolidColorBrush x:Key="Fan.PlaceholderForeground" Color="#66000000" />
+        <SolidColorBrush x:Key="Fan.Accent" Color="#FF0067C0" />
+        <SolidColorBrush x:Key="Fan.AccentForeground" Color="#FFFFFFFF" />
+    </Window.Resources>
+    <Canvas x:Name="ItemsCanvas" ClipToBounds="False" />
+</Window>
