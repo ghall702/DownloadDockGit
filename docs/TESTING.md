@@ -8,8 +8,8 @@ exercised it.
 
 | Environment | What ran |
 |---|---|
-| Linux dev container (.NET 10.0.403) | Full solution build, including WPF via `EnableWindowsTargeting`; 101 Core tests; self-contained `win-x64` single-file publish |
-| GitHub Actions `windows-latest` (Windows Server 2025, interactive desktop session), workflow `.github/workflows/build.yml` | Release build; 101 Core tests; 29 Windows tests (PDFium, WIC, Shell, real OLE drags, File Explorer drop, fan window); self-contained publish; smoke test of the **published exe** (`scripts/snapshot.ps1`) |
+| Linux dev container (.NET 10.0.403) | Full solution build, including WPF via `EnableWindowsTargeting`; 155 Core tests; 86 Integration tests (3 Windows-only ACL tests skipped); self-contained `win-x64` single-file publish |
+| GitHub Actions `windows-latest` (Windows Server 2025, interactive desktop session), workflow `.github/workflows/build.yml` | Release build; 155 Core tests; 89 Integration tests (named pipes, ACLs, reconnects); 51 Windows tests (PDFium, WIC, Shell, real OLE drags, File Explorer drop, fan window, screenshots, tray drops, Finder integration against the real exe); NuGet pack of `DownloadDock.Integration`; self-contained publish; smoke test of the **published exe** (`scripts/snapshot.ps1`) |
 
 The CI run for the final commit passed every step. Test results (`.trx`) and rendered snapshots are
 uploaded as the `test-results-and-snapshots` artifact, and the executable as `DownloadDock-win-x64`.
