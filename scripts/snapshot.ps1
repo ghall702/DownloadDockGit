@@ -45,10 +45,11 @@ foreach ($theme in 'light', 'dark') {
 }
 
 if ($PrintPreview -or $env:GITHUB_ACTIONS) {
-    # Emit a small JPEG of the light snapshot as base64 so it can be inspected from the job log.
+    # Emit small JPEGs of the snapshots as base64 so they can be inspected from the job log.
     Add-Type -AssemblyName System.Drawing
-    $src = Join-Path $Out 'fan-light.png'
-    if (Test-Path $src) {
+    foreach ($theme in 'light', 'dark') {
+        $src = Join-Path $Out "fan-$theme.png"
+        if (-not (Test-Path $src)) { continue }
         $img = [System.Drawing.Image]::FromFile($src)
         $scale = [Math]::Min(1.0, 560.0 / $img.Width)
         $bmp = New-Object System.Drawing.Bitmap ([int]($img.Width * $scale)), ([int]($img.Height * $scale))
@@ -57,13 +58,14 @@ if ($PrintPreview -or $env:GITHUB_ACTIONS) {
         $g.DrawImage($img, 0, 0, $bmp.Width, $bmp.Height)
         $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
         $params = New-Object System.Drawing.Imaging.EncoderParameters 1
-        $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), 70L
+        $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), 85L
         $ms = New-Object System.IO.MemoryStream
         $bmp.Save($ms, $codec, $params)
         $b64 = [Convert]::ToBase64String($ms.ToArray())
-        Write-Host "FAN-SNAPSHOT-BASE64-BEGIN"
+        $tag = $theme.ToUpperInvariant()
+        Write-Host "FAN-SNAPSHOT-$tag-BEGIN"
         for ($i = 0; $i -lt $b64.Length; $i += 3000) { Write-Host $b64.Substring($i, [Math]::Min(3000, $b64.Length - $i)) }
-        Write-Host "FAN-SNAPSHOT-BASE64-END"
+        Write-Host "FAN-SNAPSHOT-$tag-END"
         $g.Dispose(); $bmp.Dispose(); $img.Dispose()
     }
 }

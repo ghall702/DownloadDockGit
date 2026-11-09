@@ -86,7 +86,7 @@ Round-trip, defaults, corrupt-file recovery (backed up as `.corrupt`) and range 
 CI runs `DownloadDock.exe --fan-snapshot` on a folder of sample downloads and renders the real fan
 window offscreen. The step fails if any card's name label wasn't laid out, or if opening the fan
 rebuilt the layout more than once. The latest snapshot is in
-[`docs/images/fan-snapshot.png`](images/fan-snapshot.png).
+[`docs/images/fan-light.jpg`](images/fan-light.jpg) and [`docs/images/fan-dark.jpg`](images/fan-dark.jpg).
 
 **A bug this caught:** the first snapshots showed empty name pills and sliver-thin cards, even though
 every unit test passed. Probing the layout from inside the snapshot showed the window's `DpiChanged`
