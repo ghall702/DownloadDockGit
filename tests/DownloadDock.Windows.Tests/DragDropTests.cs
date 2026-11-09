@@ -16,6 +16,7 @@ namespace DownloadDock.Windows.Tests;
 /// IDList format (what Explorer/Office/Chrome read), copy-only effects, and – end to end – that an OLE
 /// drop target in another apartment, and File Explorer itself, receive the actual file.
 /// </summary>
+[Collection("Desktop")]
 public class DragDropTests
 {
     // ------------------------------------------------------------------ data object

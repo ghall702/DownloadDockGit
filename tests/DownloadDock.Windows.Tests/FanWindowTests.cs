@@ -15,6 +15,7 @@ using DownloadDock.ViewModels;
 
 namespace DownloadDock.Windows.Tests;
 
+[Collection("Desktop")]
 public class FanWindowTests
 {
     private static readonly FanAnchor Anchor = new(new RECT(0, 0, 1920, 1080), new RECT(0, 0, 1920, 1032), 1.0, 1590, 1032, FanDirection.Up, true);
@@ -61,6 +62,7 @@ public class FanWindowTests
                 }
 
                 // Hit-testing the centre of each card finds that card (despite overlap and rotation).
+                fan.UpdateLayout();
                 foreach (var v in views.Take(8))
                 {
                     var centre = v.TranslatePoint(new Point(v.PivotX, v.ItemHeight / 2), canvas);
