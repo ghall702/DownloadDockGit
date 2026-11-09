@@ -86,11 +86,16 @@ internal partial class FanWindow
         PreviewKeyDown += OnPreviewKeyDown;
         DpiChanged += (_, _) =>
         {
+            DpiChangeCount++;
             if (IsOpen && !IsClosing && !IsDragging) Relayout(animate: false);
         };
     }
 
     public IntPtr Handle => new WindowInteropHelper(this).EnsureHandle();
+
+    /// <summary>Diagnostics counters.</summary>
+    internal int DpiChangeCount { get; private set; }
+    internal int RelayoutCount { get; private set; }
 
     // ------------------------------------------------------------------ public API
 
@@ -197,6 +202,7 @@ internal partial class FanWindow
     private void Relayout(bool animate, bool buildOnly = false)
     {
         if (_anchor is null) return;
+        RelayoutCount++;
         var anchor = _anchor;
         var s = (double)_settings.ThumbnailSize;
         var options = new FanLayoutOptions

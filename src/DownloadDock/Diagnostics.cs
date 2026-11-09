@@ -112,6 +112,29 @@ internal static class Diagnostics
         object? layoutProbe = null;
         if (((System.Windows.Controls.Canvas)root).Children.OfType<FanItemView>().FirstOrDefault() is { } probe)
         {
+            static object Flags(System.Windows.Media.Visual v)
+            {
+                try
+                {
+                    var flagsType = typeof(System.Windows.Media.Visual).Assembly.GetType("System.Windows.Media.VisualFlags")!;
+                    var check = typeof(System.Windows.Media.Visual).GetMethod("CheckFlagsAnd", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, new[] { flagsType })!;
+                    bool Has(string name) => (bool)check.Invoke(v, new[] { Enum.Parse(flagsType, name) })!;
+                    var level = typeof(System.Windows.Media.Visual).GetProperty("TreeLevel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(v);
+                    return new { suspended = Has("IsLayoutSuspended"), islandRoot = Has("IsLayoutIslandRoot"), level };
+                }
+                catch (Exception ex) { return ex.GetType().Name + ": " + ex.Message; }
+            }
+            var flags = new
+            {
+                window = Flags(fan),
+                root = Flags(root),
+                view = Flags(probe),
+                pill = Flags(probe.LabelPill),
+                text = Flags(probe.NameText),
+                layoutException = System.Windows.Controls.Primitives.LayoutInformation.GetLayoutExceptionElement(fan.Dispatcher)?.GetType().FullName,
+                dpiChanges = fan.DpiChangeCount,
+                relayouts = fan.RelayoutCount,
+            };
             object Snap() => new
             {
                 label = probe.LabelPill.ActualWidth,
@@ -130,7 +153,7 @@ internal static class Diagnostics
             probe.NameText.InvalidateMeasure();
             fan.UpdateLayout();
             var afterInvalidate = Snap();
-            layoutProbe = new { before, afterUpdate, afterInvalidate };
+            layoutProbe = new { flags, before, afterUpdate, afterInvalidate };
         }
 
         // Render the fan's own visual tree 1:1, then composite it over a wallpaper-like background
