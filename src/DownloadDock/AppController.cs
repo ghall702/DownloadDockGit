@@ -46,6 +46,8 @@ internal sealed class AppController : IDisposable
     private FanWindow? _fan;
     private SettingsWindow? _settingsWindow;
     private readonly Core.Downloads.DwellTrigger _springLoad = new();
+    private ForeignDragWatcher? _dragWatcher;
+    private TrayDropCatcher? _catcher;
     private Screenshots.ScreenshotController? _screenshots;
     private AppSettings _settings = new();
     private string _folder = "";
@@ -79,6 +81,7 @@ internal sealed class AppController : IDisposable
         _fan.FilesDropped += CopyIntoDownloads;
         FileDragSource.DragMoved += OnOwnDragMoved;
         FileDragSource.DragEnded += _ => _springLoad.Reset();
+        StartForeignDragSupport();
         _ = _fan.Handle; // create the HWND up front so the first open is instant
 
         _tray = new TrayIcon("Downloads");
@@ -183,6 +186,45 @@ internal sealed class AppController : IDisposable
         var inside = _tray.GetIconRect() is { } r && p.X >= r.Left - 6 && p.X < r.Right + 6 && p.Y >= r.Top - 6 && p.Y < r.Bottom + 6;
         if (_springLoad.Update(inside, DateTime.UtcNow))
             _dispatcher.BeginInvoke(() => OpenFanForDrop());
+    }
+
+    /// <summary>
+    /// Lets files dragged from *other* apps (Explorer, browsers, mail…) be dropped on the tray icon: a
+    /// mouse watcher notices a drag reaching the icon and arms a transparent drop catcher over it.
+    /// </summary>
+    private void StartForeignDragSupport()
+    {
+        try
+        {
+            _catcher = new TrayDropCatcher
+            {
+                Accepts = files => !Core.Downloads.DropIntoFolder.AllAlreadyIn(files, _folder),
+            };
+            _ = _catcher.Handle;
+            _catcher.SpringRequested += () => OpenFanForDrop();
+            _catcher.FilesDropped += files =>
+            {
+                CopyIntoDownloads(files);
+                // Show the new download arriving at the bottom of the stack.
+                if (_fan is { IsOpen: false }) OpenFanForDrop();
+            };
+
+            _dragWatcher = new ForeignDragWatcher(_dispatcher);
+            _dragWatcher.ButtonPressed += () => _dragWatcher?.SetTarget(_tray?.GetIconRect());
+            _dragWatcher.DragApproachingTarget += () =>
+            {
+                if (_catcher is null || _tray?.GetIconRect() is not { } rect) return;
+                if (_fan is { IsOpen: true, IsClosing: false }) return; // the fan itself is the target then
+                _catcher.Arm(rect);
+            };
+            _dragWatcher.ButtonReleased += () => _dispatcher.BeginInvoke(DispatcherPriority.Background, () => _catcher?.Disarm());
+            _dragWatcher.SetTarget(_tray?.GetIconRect());
+            if (!_dragWatcher.IsHooked) Log.Error("Dropping files from other apps on the tray icon is unavailable (mouse hook refused)");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Foreign drag support failed to start", ex);
+        }
     }
 
     internal void OpenFanForDrop(FanAnchor? anchorOverride = null)
@@ -435,6 +477,8 @@ internal sealed class AppController : IDisposable
         if (_disposed) return;
         _disposed = true;
         FileDragSource.DragMoved -= OnOwnDragMoved;
+        _dragWatcher?.Dispose();
+        _catcher?.Close();
         _monitor.Dispose();
         _screenshots?.Dispose();
         _tray?.Dispose();

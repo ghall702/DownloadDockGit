@@ -208,6 +208,7 @@ drop, so these rows stay unchecked until someone actually tries them.
 | S3 | **Canva** editor / Uploads in Chrome | Uploaded as an image | ☐ not yet tested |
 | S4 | **Spark Mail** message | Attached | ☐ not yet tested |
 | S5 | **Chrome** upload drop zone | Receives the PNG | ☐ not yet tested |
+| S8 | Drag a file from **File Explorer / Chrome's download bar / Outlook** onto the tray icon | Icon highlights; hold to open the fan, or drop on the icon; file copied into Downloads | ☐ not yet tested on a real tray (tested with a separate drag-source process) |
 | S7 | The **DownloadDock tray icon**: hold the drag on it until the fan opens, then drop | Fan springs open; the screenshot is copied into Downloads and appears at the bottom | ☐ not yet tested (fan drop and spring-load logic tested separately) |
 | S6 | **File Explorer** / the Downloads folder | PNG copied, original kept | ✅ Explorer verified automatically; ☐ Downloads-folder icon not yet tested |
 

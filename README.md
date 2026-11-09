@@ -42,6 +42,21 @@ in for context.</sub>
 | **Item menu** | Right-click a card for Open, Open with…, Show in folder, Copy (puts the real file on the clipboard) and Copy as path. |
 
 
+## Dropping files into the dock
+
+Drag **any file from any app** onto the DownloadDock tray icon: Explorer, a browser's downloads bar,
+an email attachment, a screenshot thumbnail. The icon lights up. Drop right there, or hold for a
+moment and the fan springs open so you can drop onto it. The file is **copied** into your Downloads
+folder (never moved, never overwriting: a duplicate becomes `… (2)`). Files that are already in
+Downloads are ignored.
+
+How it works: the notification area belongs to Explorer and can't accept drops, and Windows doesn't
+tell other processes about drags. So a low-level mouse hook (its own thread, read-only, consumes
+nothing) notices when a held-button drag that started elsewhere reaches the icon. A tiny invisible
+drop target is then placed over the icon until the button is released. It reacts only to real file
+drags. Clicks on the icon, and dragging the icon to rearrange the tray, are unaffected. The icon
+needs to be visible on the taskbar: Windows doesn't report the position of icons hidden under ^.
+
 ## Screenshots
 
 | | |
@@ -64,11 +79,10 @@ A thumbnail of the capture slides in just above the taskbar in the bottom-right 
   the screenshot file.
 - **Right-click** it for Open, Edit, Copy, Save to Screenshots folder (temporary mode only), Save As,
   Show in folder and Dismiss.
-- **Drop it into the Downloads dock:** drag the thumbnail onto the DownloadDock tray icon and hold it
-  there for a moment. The fan springs open (without taking focus), and dropping anywhere on it
-  **copies** the screenshot into your Downloads folder, where it appears at the bottom of the stack.
-  If the fan is already open, just drop onto it. Windows doesn't let apps accept drops on the tray icon
-  itself, so this works like spring-loaded Dock stacks on macOS.
+- **Drop it into the Downloads dock:** drag the thumbnail onto the DownloadDock tray icon. The icon
+  lights up; hold it there for a moment and the fan springs open (without taking focus). Drop on the
+  fan or straight on the icon, and the screenshot is **copied** into your Downloads folder, where it
+  appears at the bottom of the stack.
 - New screenshots stack above older ones (up to four per screen). A thumbnail you're dragging is
   never moved or closed.
 - It never takes focus from the app you're working in, and it's excluded from later screenshots.
