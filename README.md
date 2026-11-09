@@ -10,6 +10,16 @@ Gmail, Canva, Spark, PowerPoint, File Explorer or any other app that accepts fil
 DownloadDock is a native C#/WPF app on .NET 10. It isn't Electron and needs no account, cloud service
 or subscription.
 
+<p align="center">
+  <img src="docs/images/fan-dark.jpg" width="320" alt="DownloadDock fan, dark theme">
+  <img src="docs/images/fan-light.jpg" width="320" alt="DownloadDock fan, light theme">
+</p>
+
+<sub>These images are not mock-ups. The published `DownloadDock.exe` rendered them on a Windows CI runner
+(`--fan-snapshot`) from sample downloads: PDF first pages via PDFium, DOCX/PPTX/XLSX rendered without
+Office, photos, a Markdown page, and the Shell's own zip and folder icons. The taskbar strip is drawn
+in for context.</sub>
+
 ---
 
 ## Features
