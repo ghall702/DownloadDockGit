@@ -28,6 +28,9 @@ jobs:
       - name: Core tests
         run: dotnet test tests/DownloadDock.Core.Tests -c Release --no-build --logger "trx;LogFileName=core.trx" --logger "console;verbosity=normal" --results-directory artifacts/test-results
 
+      - name: Integration library tests (protocol, pipes, ACLs, reconnects)
+        run: dotnet test tests/DownloadDock.Integration.Tests -c Release --no-build --logger "trx;LogFileName=integration.trx" --logger "console;verbosity=normal" --results-directory artifacts/test-results
+
       - name: Windows tests (PDFium, WIC, Shell, OLE drag-and-drop, fan window)
         env:
           DD_SAMPLE_OUT: ${{ github.workspace }}\artifacts\sample-downloads
@@ -47,6 +50,10 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
           -o artifacts/publish
 
+      - name: Pack DownloadDock.Integration (NuGet package for Finder for Windows)
+        if: success() || failure()
+        run: dotnet pack src/DownloadDock.Integration/DownloadDock.Integration.csproj -c Release -o artifacts/nuget
+
       - name: Smoke-test the published exe (thumbnails + fan snapshots)
         if: success() || failure()
         shell: pwsh
@@ -57,6 +64,12 @@ jobs:
         with:
           name: DownloadDock-win-x64
           path: artifacts/publish/DownloadDock.exe
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DownloadDock.Integration-nupkg
+          path: artifacts/nuget/*.nupkg
 
       - uses: actions/upload-artifact@v4
         if: always()

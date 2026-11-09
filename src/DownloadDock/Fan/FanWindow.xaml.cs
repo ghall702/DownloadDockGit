@@ -59,6 +59,9 @@ internal partial class FanWindow
     /// <summary>Fired after the fan has fully closed.</summary>
     public event Action? FanClosed;
 
+    /// <summary>Fired when the fan opens (for integration events).</summary>
+    public event Action? FanOpened;
+
     /// <summary>Fired when a drag finishes (for diagnostics / status).</summary>
     public event Action<FanItemViewModel, FileDragResult, int>? DragFinished;
 
@@ -161,6 +164,7 @@ internal partial class FanWindow
         PositionWindow();
 
         AnimateOpen();
+        FanOpened?.Invoke();
     }
 
     /// <summary>Called when the Downloads folder changes while the fan may be open.</summary>
@@ -754,8 +758,7 @@ internal partial class FanWindow
     private void SetDropSurface(bool on)
         => ItemsCanvas.Background = on ? new SolidColorBrush(Color.FromArgb(1, 255, 255, 255)) : null;
 
-    private static string[]? DroppedFiles(DragEventArgs e)
-        => e.Data.GetDataPresent(DataFormats.FileDrop) ? e.Data.GetData(DataFormats.FileDrop) as string[] : null;
+    private static string[]? DroppedFiles(DragEventArgs e) => FileDropReader.GetFiles(e.Data);
 
     private void OnDragOverFan(object sender, DragEventArgs e)
     {

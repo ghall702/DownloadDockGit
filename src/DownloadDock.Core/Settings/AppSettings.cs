@@ -69,6 +69,23 @@ public sealed record AppSettings
     /// <summary>Also show the thumbnail for Snipping Tool, Win+Shift+S and Print Screen captures.</summary>
     public bool DetectWindowsScreenshots { get; init; } = true;
 
+    // ---------------------------------------------------------------- Finder for Windows integration
+
+    /// <summary>Master switch: talk to Finder for Windows over the local integration pipe.</summary>
+    public bool FinderIntegrationEnabled { get; init; } = true;
+
+    /// <summary>"Open Downloads Folder" and folder clicks open in Finder when it's available.</summary>
+    public bool PreferFinderForFolders { get; init; } = true;
+
+    /// <summary>"Show in folder" reveals the file in Finder when it's available.</summary>
+    public bool PreferFinderForReveal { get; init; } = true;
+
+    /// <summary>Start an installed Finder that isn't running (otherwise File Explorer is used).</summary>
+    public bool LaunchFinderIfNotRunning { get; init; } = true;
+
+    /// <summary>Finder may start DownloadDock (published in DownloadDock's registration for Finder to honour).</summary>
+    public bool AllowFinderToLaunchDownloadDock { get; init; } = true;
+
     /// <summary>Returns a copy with every value forced into its valid range.</summary>
     public AppSettings Normalize() => this with
     {

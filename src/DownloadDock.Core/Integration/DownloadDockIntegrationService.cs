@@ -100,9 +100,11 @@ public sealed class DownloadDockIntegrationService : IAsyncDisposable
     /// downloadDetected for files that weren't there before; returns them so the caller can also
     /// notify Finder.
     /// </summary>
-    public IReadOnlyList<DownloadEntry> OnDownloadsSnapshot(string folder, IReadOnlyList<DownloadEntry> items)
+    public IReadOnlyList<DownloadEntry> OnDownloadsSnapshot(string folder, IReadOnlyList<DownloadEntry> items, Func<string, bool>? alreadyReported = null)
     {
         var added = _detector.Update(folder, items);
+        // Files DownloadDock itself just put there (drops, screenshots) were already reported once.
+        if (alreadyReported is not null) added = added.Where(e => !alreadyReported(e.FullPath)).ToList();
         foreach (var e in added)
             _server.Publish(IntegrationEvents.DownloadDetected, ToPayload(e.FullPath, e.Length, null));
         return added;

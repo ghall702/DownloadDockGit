@@ -178,6 +178,47 @@
                 </StackPanel>
             </Border>
 
+            <!-- Finder for Windows -->
+            <TextBlock Text="Finder Integration" Style="{StaticResource SectionHeader}" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <CheckBox Content="Enable Finder integration" IsChecked="{Binding FinderIntegrationEnabled}" />
+                    <StackPanel Margin="24,8,0,0" IsEnabled="{Binding FinderIntegrationEnabled}">
+                        <CheckBox Content="Prefer Finder when opening folders" IsChecked="{Binding PreferFinderForFolders}" />
+                        <CheckBox Margin="0,6,0,0" Content="Prefer Finder for Show in folder" IsChecked="{Binding PreferFinderForReveal}" />
+                        <CheckBox Margin="0,6,0,0" Content="Start Finder when it isn't running" IsChecked="{Binding LaunchFinderIfNotRunning}" />
+                        <CheckBox Margin="0,6,0,0" Content="Fall back to File Explorer" IsChecked="{Binding FallBackToExplorer, Mode=OneWay}" IsEnabled="False"
+                                  ToolTip="Always on: if Finder is missing, not running, busy or incompatible, File Explorer is used so Show in folder never stops working." />
+                        <CheckBox Margin="0,6,0,0" Content="Allow Finder to start DownloadDock" IsChecked="{Binding AllowFinderToLaunchDownloadDock}" />
+                    </StackPanel>
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Width="10" Height="10" Margin="0,5,8,0" VerticalAlignment="Top">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#FF8A8A8A" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding FinderConnected}" Value="True">
+                                            <Setter Property="Fill" Value="#FF2BB34A" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{Binding FinderStatusText}" TextWrapping="Wrap" AutomationProperties.Name="Finder connection status" />
+                            <TextBlock Text="{Binding FinderVersionText}" Style="{StaticResource Hint}" Margin="0,2,0,0"
+                                       Visibility="{Binding HasFinderVersion, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Margin="0,8,0,0" Style="{StaticResource Hint}"
+                               Text="DownloadDock and Finder talk over a private local pipe that only your Windows session can open. Files still move by normal drag-and-drop." />
+                </StackPanel>
+            </Border>
+
             <!-- System -->
             <TextBlock Text="System" Style="{StaticResource SectionHeader}" />
             <Border Style="{StaticResource Card}">

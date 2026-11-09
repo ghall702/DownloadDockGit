@@ -54,6 +54,12 @@ internal sealed class ScreenshotToastManager : IDisposable
         _tick = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => Tick(), dispatcher);
     }
 
+    /// <summary>"Show in folder" handler (routes to Finder or File Explorer); null = File Explorer.</summary>
+    public Func<string, Task>? RevealInFolder { get; set; }
+
+    /// <summary>Label for the "Show in folder" item (e.g. "Show in Finder").</summary>
+    public Func<string>? ShowInFolderLabel { get; set; }
+
     public IReadOnlyList<ScreenshotToastWindow> Visible => _entries.Where(e => !e.Closing).Select(e => e.Window).ToList();
 
     private double AnimationFactor => AppSettings.AnimationFactor(_settings().AnimationSpeed);
@@ -229,7 +235,7 @@ internal sealed class ScreenshotToastManager : IDisposable
             .Add(MenuCopy, "Copy");
         if (item.IsTemporary) menu.Add(MenuSave, "Save to Screenshots folder");
         menu.Add(MenuSaveAs, "Save As…")
-            .Add(MenuShow, "Show in folder")
+            .Add(MenuShow, ShowInFolderLabel?.Invoke() ?? "Show in folder")
             .AddSeparator()
             .Add(MenuDismiss, "Dismiss");
 
@@ -259,7 +265,10 @@ internal sealed class ScreenshotToastManager : IDisposable
                     break;
                 case MenuShow:
                     if (item.WaitForFile(TimeSpan.FromSeconds(5)) is { } shown)
-                        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{shown}\"") { UseShellExecute = true })?.Dispose();
+                    {
+                        if (RevealInFolder is { } reveal) _ = reveal(shown);
+                        else Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{shown}\"") { UseShellExecute = true })?.Dispose();
+                    }
                     break;
                 case MenuDismiss:
                     Dismiss(entry, fade: false);

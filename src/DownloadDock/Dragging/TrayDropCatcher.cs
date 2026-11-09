@@ -105,8 +105,7 @@ internal sealed class TrayDropCatcher : Window
         if (IsVisible) Hide();
     }
 
-    private static string[]? Files(DragEventArgs e)
-        => e.Data.GetDataPresent(DataFormats.FileDrop) ? e.Data.GetData(DataFormats.FileDrop) as string[] : null;
+    private static string[]? Files(DragEventArgs e) => FileDropReader.GetFiles(e.Data);
 
     private void OnDragOver(object sender, DragEventArgs e)
     {

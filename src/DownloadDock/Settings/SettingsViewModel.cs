@@ -35,6 +35,14 @@ public sealed class SettingsViewModel : ObservableObject
     private string? _shortcutMessage;
     private readonly string _defaultScreenshotFolder;
     private readonly Screenshots.HotkeyService? _hotkeys;
+    private bool _finderEnabled;
+    private bool _preferFinderFolders;
+    private bool _preferFinderReveal;
+    private bool _launchFinder;
+    private bool _allowFinderLaunch;
+    private string _finderStatusText = "Finder integration status is unavailable.";
+    private string? _finderVersionText;
+    private bool _finderConnected;
 
     public event Func<string, string?>? BrowseScreenshotFolderRequested;
 
@@ -55,6 +63,11 @@ public sealed class SettingsViewModel : ObservableObject
         _saveMode = settings.ScreenshotSaveMode;
         _thumbnailSeconds = settings.ScreenshotThumbnailSeconds;
         _detectWindows = settings.DetectWindowsScreenshots;
+        _finderEnabled = settings.FinderIntegrationEnabled;
+        _preferFinderFolders = settings.PreferFinderForFolders;
+        _preferFinderReveal = settings.PreferFinderForReveal;
+        _launchFinder = settings.LaunchFinderIfNotRunning;
+        _allowFinderLaunch = settings.AllowFinderToLaunchDownloadDock;
         if (shortcutProblems is { Count: > 0 }) _shortcutMessage = string.Join(" ", shortcutProblems.Values);
         RecordFullScreenCommand = new RelayCommand(() => StartRecording(Screenshots.ScreenshotController.FullScreenId), () => _hotkeys is not null);
         RecordRegionCommand = new RelayCommand(() => StartRecording(Screenshots.ScreenshotController.RegionId), () => _hotkeys is not null);
@@ -90,6 +103,32 @@ public sealed class SettingsViewModel : ObservableObject
         SaveCommand = new RelayCommand(Save, () => FolderIsValid);
         CancelCommand = new RelayCommand(() => CloseRequested?.Invoke());
         ClearCacheCommand = new RelayCommand(() => ClearCacheRequested?.Invoke());
+    }
+
+    // ------------------------------------------------------------------ Finder integration
+
+    public bool FinderIntegrationEnabled { get => _finderEnabled; set => Set(ref _finderEnabled, value); }
+    public bool PreferFinderForFolders { get => _preferFinderFolders; set => Set(ref _preferFinderFolders, value); }
+    public bool PreferFinderForReveal { get => _preferFinderReveal; set => Set(ref _preferFinderReveal, value); }
+    public bool LaunchFinderIfNotRunning { get => _launchFinder; set => Set(ref _launchFinder, value); }
+    public bool AllowFinderToLaunchDownloadDock { get => _allowFinderLaunch; set => Set(ref _allowFinderLaunch, value); }
+
+    /// <summary>File Explorer is always the fallback, so "Show in folder" can never stop working.</summary>
+    public bool FallBackToExplorer => true;
+
+    public string FinderStatusText { get => _finderStatusText; private set => Set(ref _finderStatusText, value); }
+    public string? FinderVersionText { get => _finderVersionText; private set { if (Set(ref _finderVersionText, value)) OnPropertyChanged(nameof(HasFinderVersion)); } }
+    public bool HasFinderVersion => !string.IsNullOrEmpty(_finderVersionText);
+    public bool FinderConnected { get => _finderConnected; private set => Set(ref _finderConnected, value); }
+
+    /// <summary>Called (on the UI thread) whenever the Finder link changes.</summary>
+    internal void SetFinderStatus(DownloadDock.Core.Integration.FinderStatus status)
+    {
+        FinderStatusText = status.Description;
+        FinderConnected = status.Status == DownloadDock.Core.Integration.FinderConnectionStatus.Connected;
+        FinderVersionText = status.FinderVersion is { Length: > 0 } v
+            ? "Finder version " + v + (status.ProtocolVersion is { } pv ? $" · protocol {pv}" : "")
+            : null;
     }
 
     // ------------------------------------------------------------------ screenshots
@@ -289,6 +328,11 @@ public sealed class SettingsViewModel : ObservableObject
         ScreenshotSaveMode = _saveMode,
         ScreenshotThumbnailSeconds = _thumbnailSeconds,
         DetectWindowsScreenshots = _detectWindows,
+        FinderIntegrationEnabled = _finderEnabled,
+        PreferFinderForFolders = _preferFinderFolders,
+        PreferFinderForReveal = _preferFinderReveal,
+        LaunchFinderIfNotRunning = _launchFinder,
+        AllowFinderToLaunchDownloadDock = _allowFinderLaunch,
     }).Normalize();
 
     private void Browse()

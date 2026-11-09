@@ -347,6 +347,10 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int GetDoubleClickTime();
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
     // ---------------------------------------------------------------- shcore
     [DllImport("shcore.dll")]
     public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);

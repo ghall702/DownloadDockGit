@@ -45,7 +45,7 @@ internal sealed class ScreenshotController : IDisposable
             else if (id == RegionId) _ = CaptureRegionAsync();
         };
         Hotkeys.PrintScreenObserved += Detector.OnPrintScreen;
-        Detector.ScreenshotDetected += item => Toasts.Show(item);
+        Detector.ScreenshotDetected += Announce;
         Toasts.OpenRequested += OpenEditor;
 
         _janitor = new DispatcherTimer(TimeSpan.FromHours(1), DispatcherPriority.Background, (_, _) => Store.CleanTemporaryFiles(), dispatcher);
@@ -93,7 +93,7 @@ internal sealed class ScreenshotController : IDisposable
             var monitor = ScreenCapture.MonitorAtCursor();
             var image = await Task.Run(() => ScreenCapture.Capture(monitor.Bounds));
             var item = Store.Save(image, "fullscreen", monitor.Handle);
-            Toasts.Show(item);
+            Announce(item);
             Log.Info($"Full-screen capture {image.PixelWidth}×{image.PixelHeight}");
             return item;
         }
@@ -119,7 +119,7 @@ internal sealed class ScreenshotController : IDisposable
             var result = await Region.SelectAsync();
             if (result is null) return null;
             var item = Store.Save(result.Image, "region", result.Monitor);
-            Toasts.Show(item);
+            Announce(item);
             Log.Info($"Region capture {result.Image.PixelWidth}×{result.Image.PixelHeight}");
             return item;
         }
@@ -133,6 +133,15 @@ internal sealed class ScreenshotController : IDisposable
         {
             _capturing = false;
         }
+    }
+
+    /// <summary>A screenshot was captured or detected (raised on the UI thread; the file may still be being written).</summary>
+    public event Action<ScreenshotItem>? ScreenshotSaved;
+
+    private void Announce(ScreenshotItem item)
+    {
+        Toasts.Show(item);
+        try { ScreenshotSaved?.Invoke(item); } catch (Exception ex) { Log.Error("ScreenshotSaved handler failed", ex); }
     }
 
     public void OpenEditor(ScreenshotItem item)

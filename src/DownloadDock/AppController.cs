@@ -49,6 +49,14 @@ internal sealed class AppController : IDisposable
     private ForeignDragWatcher? _dragWatcher;
     private TrayDropCatcher? _catcher;
     private Screenshots.ScreenshotController? _screenshots;
+    private DownloadDock.Core.Integration.DownloadDockIntegrationService? _integration;
+    private DownloadDock.Core.Integration.FinderConnector? _finder;
+    private Integration.AppSurface? _surface;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _recentlyAdded = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly string? AppVersion = typeof(AppController).Assembly.GetName().Version?.ToString(3);
+
+    /// <summary>Raised on the UI thread when the Finder link changes (for the Settings window).</summary>
+    public event Action<DownloadDock.Core.Integration.FinderStatus>? FinderStatusChanged;
     private AppSettings _settings = new();
     private string _folder = "";
     private DownloadsSnapshot? _snapshot;
@@ -79,6 +87,8 @@ internal sealed class AppController : IDisposable
         _fan.ContextMenuRequested += OnItemContextMenu;
         _fan.DragFinished += (vm, result, effect) => Log.Info($"Drag of '{vm.Path}' finished: {result} (effect {effect})");
         _fan.FilesDropped += CopyIntoDownloads;
+        _fan.FanOpened += () => { if (_surface is not null) _surface.FanOpen = true; _integration?.PublishFanState(true); };
+        _fan.FanClosed += () => { if (_surface is not null) _surface.FanOpen = false; _integration?.PublishFanState(false); };
         FileDragSource.DragMoved += OnOwnDragMoved;
         FileDragSource.DragEnded += _ => _springLoad.Reset();
         StartForeignDragSupport();
@@ -107,6 +117,8 @@ internal sealed class AppController : IDisposable
             _screenshots = null;
         }
 
+        StartIntegration();
+
         Log.Info($"Started. Folder: {_folder}");
         if (openFanNow)
             _dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => OpenFan(null));
@@ -128,6 +140,22 @@ internal sealed class AppController : IDisposable
         var px = FanWindow.ThumbnailPixelsFor(_settings.ThumbnailSize, PrimaryDpiScale());
         _thumbnails.Prefetch(snapshot.Items.Take(_settings.VisibleFiles), px);
         _fan?.UpdateEntries(snapshot.Items, snapshot.TotalCount, snapshot.Folder);
+
+        // Integration: report genuinely new downloads (from this same watcher – no second one).
+        if (_integration is { } integration)
+        {
+            foreach (var e in integration.OnDownloadsSnapshot(snapshot.Folder, snapshot.Items, AlreadyReported))
+                _finder?.NotifyFileReceived(e.FullPath, DownloadDock.Integration.ReceivedFileKinds.Download, e.Length);
+        }
+    }
+
+    private bool AlreadyReported(string path)
+    {
+        foreach (var (p, t) in _recentlyAdded)
+        {
+            if (DateTime.UtcNow - t > TimeSpan.FromMinutes(2)) _recentlyAdded.TryRemove(p, out _);
+        }
+        return _recentlyAdded.ContainsKey(path) || _screenshots?.Store.IsOwnFile(path) == true;
     }
 
     private double PrimaryDpiScale()
@@ -210,7 +238,11 @@ internal sealed class AppController : IDisposable
             };
 
             _dragWatcher = new ForeignDragWatcher(_dispatcher);
-            _dragWatcher.ButtonPressed += () => _dragWatcher?.SetTarget(_tray?.GetIconRect());
+            _dragWatcher.ButtonPressed += () =>
+            {
+                _dragWatcher?.SetTarget(_tray?.GetIconRect());
+                CloseInactiveFanOnOutsideClick();
+            };
             _dragWatcher.DragApproachingTarget += () =>
             {
                 if (_catcher is null || _tray?.GetIconRect() is not { } rect) return;
@@ -224,6 +256,139 @@ internal sealed class AppController : IDisposable
         catch (Exception ex)
         {
             Log.Error("Foreign drag support failed to start", ex);
+        }
+    }
+
+    // ------------------------------------------------------------------ Finder for Windows integration
+
+    private DownloadDock.Core.Integration.FinderIntegrationSettings FinderSettings() => new(
+        _settings.FinderIntegrationEnabled, _settings.PreferFinderForFolders, _settings.PreferFinderForReveal, _settings.LaunchFinderIfNotRunning);
+
+    /// <summary>
+    /// Starts the integration endpoint (Finder → DownloadDock) and the Finder connector
+    /// (DownloadDock → Finder). Both run on background threads; failures never affect the rest of the app.
+    /// </summary>
+    private void StartIntegration()
+    {
+        try
+        {
+            _surface = new Integration.AppSurface(_dispatcher, ShowFanForIntegration, CloseFanForIntegration, OpenSettingsForIntegration) { AppVersion = AppVersion };
+            UpdateSurface();
+            _finder = new DownloadDock.Core.Integration.FinderConnector(new Integration.WindowsFinderEnvironment(), FinderSettings, AppVersion,
+                e => _integration?.FinderSubscribedTo(e) == true);
+            _finder.StatusChanged += st => _dispatcher.BeginInvoke(() => FinderStatusChanged?.Invoke(st));
+            _finder.Start();
+            if (_settings.FinderIntegrationEnabled) StartIntegrationServer();
+            RegisterForFinder();
+
+            if (_screenshots is { } shots)
+            {
+                shots.Toasts.RevealInFolder = RevealAsync;
+                shots.Toasts.ShowInFolderLabel = ShowInFolderLabel;
+                shots.ScreenshotSaved += item => _ = AnnounceScreenshotAsync(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Finder integration failed to start (DownloadDock continues without it)", ex);
+        }
+    }
+
+    private void StartIntegrationServer()
+    {
+        if (_integration is not null || _surface is null) return;
+        _integration = new DownloadDock.Core.Integration.DownloadDockIntegrationService(_surface, AppVersion, Log.Info);
+        _integration.FinderAnnounced += _ => _finder?.Nudge();
+        _integration.Start();
+        // Baseline for new-download detection.
+        if (_snapshot is { } snap) _integration.OnDownloadsSnapshot(snap.Folder, snap.Items);
+        Log.Info("Integration endpoint started: " + _integration.PipeName);
+    }
+
+    private void StopIntegrationServer()
+    {
+        var integration = _integration;
+        _integration = null;
+        if (integration is null) return;
+        try { integration.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(3)); } catch (AggregateException) { }
+        Log.Info("Integration endpoint stopped");
+    }
+
+    private void UpdateSurface()
+    {
+        if (_surface is null) return;
+        _surface.DownloadsFolder = _folder;
+        _surface.ScreenshotsEnabled = _settings.ScreenshotsEnabled;
+        _surface.ScreenshotFolder = _settings.ScreenshotFolder ?? Screenshots.ScreenshotStore.WindowsScreenshotsFolder();
+        _surface.FanOpen = _fan?.IsOpen == true && !_fan.IsClosing;
+    }
+
+    /// <summary>Publishes where DownloadDock is installed (and whether Finder may start it) for Finder to read.</summary>
+    private void RegisterForFinder()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (exe is null || !Path.GetFileName(exe).Equals("DownloadDock.exe", StringComparison.OrdinalIgnoreCase)) return;
+            DownloadDock.Integration.AppRegistrationStore.Write(DownloadDock.Integration.AppRegistrationStore.DownloadDockKey,
+                new DownloadDock.Integration.AppRegistration(exe, AppVersion, DownloadDock.Integration.IntegrationProtocol.Version, _settings.AllowFinderToLaunchDownloadDock));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            Log.Error("Could not write the integration registration", ex);
+        }
+    }
+
+    private string ShowFanForIntegration()
+    {
+        if (_fan is null) return "unavailable";
+        if (_fan.IsOpen && !_fan.IsClosing) return "alreadyOpen";
+        OpenFan(null);
+        return "opened";
+    }
+
+    private string CloseFanForIntegration()
+    {
+        if (_fan is not { IsOpen: true } || _fan.IsClosing) return "notOpen";
+        _fan.CloseFan();
+        return "closed";
+    }
+
+    private string OpenSettingsForIntegration()
+    {
+        var already = _settingsWindow is { IsLoaded: true };
+        ShowSettings();
+        return already ? "alreadyOpen" : "opened";
+    }
+
+    public void OpenSettingsFromExternalLaunch() => ShowSettings();
+
+    /// <summary>
+    /// A fan opened on Finder's request may not get keyboard focus (Windows foreground rules), so it
+    /// would never see "deactivated". Close it on the next click outside it, as a focused fan would.
+    /// </summary>
+    private void CloseInactiveFanOnOutsideClick()
+    {
+        if (_fan is not { IsOpen: true } fan || fan.IsClosing || fan.IsActive || fan.IsDropMode || fan.IsDragging) return;
+        NativeMethods.GetCursorPos(out var p);
+        if (NativeMethods.GetWindowRect(fan.Handle, out var r) && p.X >= r.Left && p.X < r.Right && p.Y >= r.Top && p.Y < r.Bottom) return;
+        if (_tray?.GetIconRect() is { } icon && p.X >= icon.Left && p.X < icon.Right && p.Y >= icon.Top && p.Y < icon.Bottom) return; // the tray click toggles it
+        fan.CloseFan();
+    }
+
+    private async Task AnnounceScreenshotAsync(Screenshots.ScreenshotItem item)
+    {
+        try
+        {
+            var path = await item.FileTask.ConfigureAwait(false);
+            var size = new FileInfo(path).Length;
+            _recentlyAdded[path] = DateTime.UtcNow;
+            _integration?.PublishScreenshotCaptured(path, item.Source, size);
+            _finder?.NotifyFileReceived(path, DownloadDock.Integration.ReceivedFileKinds.Screenshot, size);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Log.Error("Could not announce screenshot", ex);
         }
     }
 
@@ -253,6 +418,10 @@ internal sealed class AppController : IDisposable
                     File.SetCreationTimeUtc(target, DateTime.UtcNow);
                     File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
                     Log.Info($"Dropped onto the fan: copied {source} -> {target}");
+                    _recentlyAdded[target] = DateTime.UtcNow;
+                    var size = new FileInfo(target).Length;
+                    _integration?.PublishFileAddedToDownloads(target, size);
+                    _finder?.NotifyFileReceived(target, DownloadDock.Integration.ReceivedFileKinds.AddedToDownloads, size);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -335,7 +504,7 @@ internal sealed class AppController : IDisposable
         {
             menu.Add(ItemOpen, "Open", isDefault: true)
                 .Add(ItemOpenWith, "Open with…")
-                .Add(ItemShowInFolder, "Show in folder")
+                .Add(ItemShowInFolder, ShowInFolderLabel())
                 .AddSeparator()
                 .Add(ItemCopy, "Copy")
                 .Add(ItemCopyPath, "Copy as path");
@@ -356,7 +525,7 @@ internal sealed class AppController : IDisposable
         {
             case ItemOpen: OnOpenRequested(vm); return;
             case ItemOpenWith: RunShell("rundll32.exe", $"shell32.dll,OpenAs_RunDLL {vm.Path}"); break;
-            case ItemShowInFolder: RunShell("explorer.exe", $"/select,\"{vm.Path}\""); break;
+            case ItemShowInFolder: _ = RevealAsync(vm.Path); break;
             case ItemCopy: CopyFiles(vm.Path); break;
             case ItemCopyPath: TrySetClipboardText($"\"{vm.Path}\""); break;
             case CmdSettings: _fan.CloseFan(); ShowSettings(); return;
@@ -386,11 +555,33 @@ internal sealed class AppController : IDisposable
         }
     }
 
-    private static void OpenFolder(string folder)
+    private void OpenFolder(string folder) => _ = OpenFolderAsync(folder);
+
+    /// <summary>Opens a folder in Finder (when preferred and available) or File Explorer – never on the UI thread.</summary>
+    private async Task OpenFolderAsync(string folder)
     {
-        if (!Directory.Exists(folder)) return;
-        RunShell("explorer.exe", $"\"{folder}\"");
+        if (_finder is { } finder)
+        {
+            var outcome = await Task.Run(() => finder.OpenFolderAsync(folder)).ConfigureAwait(true);
+            Log.Info($"Open folder -> {outcome}");
+            return;
+        }
+        if (Directory.Exists(folder)) RunShell("explorer.exe", $"\"{folder}\"");
     }
+
+    /// <summary>"Show in folder": Finder when preferred and available, otherwise File Explorer (always works).</summary>
+    private async Task RevealAsync(string path)
+    {
+        if (_finder is { } finder)
+        {
+            var outcome = await Task.Run(() => finder.RevealFileAsync(path)).ConfigureAwait(true);
+            Log.Info($"Show in folder -> {outcome}");
+            return;
+        }
+        RunShell("explorer.exe", $"/select,\"{path}\"");
+    }
+
+    private string ShowInFolderLabel() => _finder?.WouldUseFinderForReveal == true ? "Show in Finder" : "Show in folder";
 
     private static void RunShell(string exe, string args)
     {
@@ -440,6 +631,13 @@ internal sealed class AppController : IDisposable
         _settingsWindow = new SettingsWindow(vm);
         vm.Saved += ApplySettings;
         vm.ClearCacheRequested += () => _thumbnails.ClearAll();
+        if (_finder is { } connector)
+        {
+            vm.SetFinderStatus(connector.Status);
+            Action<DownloadDock.Core.Integration.FinderStatus> onStatus = vm.SetFinderStatus;
+            FinderStatusChanged += onStatus;
+            _settingsWindow.Closed += (_, _) => FinderStatusChanged -= onStatus;
+        }
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
         _settingsWindow.Activate();
@@ -464,6 +662,17 @@ internal sealed class AppController : IDisposable
         }
         _fan?.ApplyTheme(IsDark);
         _screenshots?.ApplySettings();
+
+        if (!string.Equals(old.DownloadsFolder, _settings.DownloadsFolder, StringComparison.OrdinalIgnoreCase))
+            _integration?.PublishDownloadsFolderChanged(_folder);
+        if (old.FinderIntegrationEnabled != _settings.FinderIntegrationEnabled)
+        {
+            if (_settings.FinderIntegrationEnabled) StartIntegrationServer();
+            else StopIntegrationServer();
+        }
+        _finder?.SettingsChanged();
+        UpdateSurface();
+        RegisterForFinder();
     }
 
     private void TrySave(AppSettings settings)
@@ -477,6 +686,8 @@ internal sealed class AppController : IDisposable
         if (_disposed) return;
         _disposed = true;
         FileDragSource.DragMoved -= OnOwnDragMoved;
+        StopIntegrationServer();
+        try { _finder?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2)); } catch (AggregateException) { }
         _dragWatcher?.Dispose();
         _catcher?.Close();
         _monitor.Dispose();
