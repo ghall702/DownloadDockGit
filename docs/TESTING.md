@@ -81,6 +81,36 @@ uploaded as the `test-results-and-snapshots` artifact, and the executable as `Do
 Round-trip, defaults, corrupt-file recovery (backed up as `.corrupt`) and range clamping:
 `SettingsStoreTests` ✅.
 
+### Screenshots (floating thumbnail)
+
+All of these run on the Windows CI desktop with real windows and real injected keyboard and mouse
+input (`ScreenshotTests`), plus pure-logic tests in Core (`ScreenshotCoreTests`).
+
+| Check | Test | Result |
+|---|---|---|
+| GDI capture returns the real on-screen pixels at physical coordinates | `Gdi_capture_returns_the_real_screen_pixels` | ✅ Windows |
+| **Win+Shift+3** pressed on the keyboard (injected) triggers the full-screen shortcut through the keyboard hook; a different Win+Shift+digit passes through untouched | `Win_shift_3_triggers_the_full_screen_shortcut` | ✅ Windows |
+| The Settings shortcut recorder captures the next key combination | `Shortcut_recorder_captures_the_next_combination` | ✅ Windows |
+| **Region selection:** the desktop is frozen, a rectangle dragged with the mouse (injected) is captured at exactly that size and position, with the right pixels | `Dragging_a_rectangle_captures_exactly_that_area` | ✅ Windows |
+| **Esc** cancels the selection (caught by the hook even without focus) | `Escape_cancels_region_selection` | ✅ Windows |
+| PNG saved with macOS-style names, never overwriting; temporary files kept while in use, cleaned up after a day, *Save* makes them permanent | `Screenshots_are_saved_as_png_with_macos_names_and_temporary_files_survive_while_in_use` | ✅ Windows |
+| **Floating thumbnail** appears bottom-right above the taskbar (not covering it), **does not take focus** from the active app, and dismisses itself after the configured time | `Thumbnail_appears_bottom_right_without_stealing_focus_and_dismisses_itself` | ✅ Windows |
+| **Hovering pauses** the countdown (stays past its timeout while hovered) and it resumes after the pointer leaves | `Hovering_pauses_the_dismissal_timer` | ✅ Windows |
+| **Dragging the thumbnail into File Explorer** copies the actual PNG (byte-identical), the original stays, the drag lease is released and the thumbnail goes away after the drop | `Dragging_the_thumbnail_into_file_explorer_copies_the_png` | ✅ Windows |
+| **Print Screen + clipboard image** is detected and saved as a file; an ordinary copied image is ignored | `Clipboard_image_after_print_screen_is_detected_and_saved` | ✅ Windows |
+| A new file in the Screenshots folder (Snipping Tool auto-save / Win+PrtScn) is detected; DownloadDock's own files are not shown twice | `New_file_in_the_screenshots_folder_is_detected` | ✅ Windows |
+| Editor burns pen markup into the full-resolution image | `Editor_burns_markup_into_a_full_resolution_image` | ✅ Windows |
+| Shortcut parsing, reserved/unsafe shortcuts refused, file naming, Snipping Tool / Print Screen / file de-duplication rules, stack layout, temp clean-up policy | `ScreenshotCoreTests` | ✅ Linux + Windows |
+| Published exe renders a real floating thumbnail (light/dark) without activating it | `--toast-snapshot` in `scripts/snapshot.ps1`; images in `docs/images/toast-*.jpg` | ✅ Windows |
+
+**Bugs these tests caught and fixed:**
+- A tooltip on the thumbnail hung the UI thread on hover (and the stuck pointer then broke the next drag). The tooltip was removed; macOS has none.
+- The thumbnail's shadow margin overlapped the taskbar by 6 px. The edge margin is now larger than the shadow.
+- Background PNG encoding needed a frozen bitmap. `Save` now freezes defensively.
+
+The drag into Explorer uses the same Shell data object as the Downloads fan, so the earlier
+end-to-end results (copy-only, original never moved) carry over.
+
 ### Visual check of the published exe
 
 CI runs `DownloadDock.exe --fan-snapshot` on a folder of sample downloads and renders the real fan
@@ -156,6 +186,29 @@ drop, so these rows stay unchecked until someone actually tries them.
 - [ ] PDF, JPG, PNG, WebP, GIF show the actual content.
 - [ ] DOCX / PPTX / XLSX: with Office installed you should see Office's own thumbnails; without Office, DownloadDock's rendered previews.
 - [ ] MP4 shows a video frame (Shell thumbnail).
+
+### Screenshots on a real desktop
+
+- [ ] Win+Shift+3: a thumbnail of the screen under the mouse slides in from the right; the Start menu does **not** open; the PNG appears in Pictures\Screenshots.
+- [ ] Win+Shift+4: the screen dims with a crosshair and live size; drag an area; Esc cancels; works on a second monitor with different scaling.
+- [ ] Hover over the thumbnail: it stays. Move away: it leaves about 2 s later. Swipe right: it goes immediately.
+- [ ] Click: the editor opens. Draw, crop, Undo, then *Done* saves into the file.
+- [ ] Right-click: Copy (paste into Paint/Word), Save As, Open, Show in folder, Dismiss.
+- [ ] Temporary mode: the file is in `%LOCALAPPDATA%\DownloadDock\Screenshots`; *Save to Screenshots folder* copies it to Pictures\Screenshots.
+- [ ] Win+Shift+S with Snipping Tool auto-save on: exactly **one** DownloadDock thumbnail (of the saved file).
+- [ ] Win+Shift+S with auto-save off: a thumbnail appears after about 2.5 s; the clipboard still pastes normally.
+- [ ] Print Screen and Win+PrtScn: a thumbnail appears; Windows' own behaviour is unchanged.
+- [ ] Copying an image in a browser or Paint does **not** produce a thumbnail.
+- [ ] Settings › Screenshots › *Change…*: press Ctrl+Shift+4; the new shortcut works and the old one no longer does; Win+Shift+S is refused.
+
+| # | Drag the screenshot thumbnail into | Expected | Status |
+|---|---|---|---|
+| S1 | **PowerPoint** slide | Inserted as a picture | ☐ not yet tested |
+| S2 | **Gmail** compose in Chrome | Attached / inlined as an image | ☐ not yet tested |
+| S3 | **Canva** editor / Uploads in Chrome | Uploaded as an image | ☐ not yet tested |
+| S4 | **Spark Mail** message | Attached | ☐ not yet tested |
+| S5 | **Chrome** upload drop zone | Receives the PNG | ☐ not yet tested |
+| S6 | **File Explorer** / the Downloads folder | PNG copied, original kept | ✅ Explorer verified automatically; ☐ Downloads-folder icon not yet tested |
 
 ## Reproducing the automated runs
 

@@ -52,6 +52,8 @@ in for context.</sub>
 
 A thumbnail of the capture slides in just above the taskbar in the bottom-right corner, like macOS:
 
+<p align="center"><img src="docs/images/toast-dark.jpg" width="400" alt="Floating screenshot thumbnail above the taskbar"></p>
+
 - **Drag it** into PowerPoint, Gmail or Canva in Chrome, Spark, Explorer… The app receives the actual
   **PNG file**, through the same native drag-and-drop as the Downloads fan (copy only; the file can't
   be moved or deleted by the drop).
