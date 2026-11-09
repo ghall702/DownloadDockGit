@@ -44,11 +44,21 @@ foreach ($theme in 'light', 'dark') {
     }
 }
 
+# Floating screenshot thumbnail, using one of the sample images as "the screenshot".
+$shot = Get-ChildItem -File $Samples -Filter *.jpg | Select-Object -First 1
+if ($shot) {
+    foreach ($theme in 'light', 'dark') {
+        $png = Join-Path $Out "toast-$theme.png"
+        $code = Invoke-Dock @('--toast-snapshot', "`"$($shot.FullName)`"", "`"$png`"", $theme)
+        if ($code -ne 0) { $failures += "toast-$theme snapshot: exit $code" } else { Get-Content "$png.json" | Write-Host }
+    }
+}
+
 if ($PrintPreview -or $env:GITHUB_ACTIONS) {
     # Emit small JPEGs of the snapshots as base64 so they can be inspected from the job log.
     Add-Type -AssemblyName System.Drawing
-    foreach ($theme in 'light', 'dark') {
-        $src = Join-Path $Out "fan-$theme.png"
+    foreach ($theme in 'light', 'dark', 'toast-light', 'toast-dark') {
+        $src = if ($theme -like 'toast-*') { Join-Path $Out "$theme.png" } else { Join-Path $Out "fan-$theme.png" }
         if (-not (Test-Path $src)) { continue }
         $img = [System.Drawing.Image]::FromFile($src)
         $scale = [Math]::Min(1.0, 560.0 / $img.Width)

@@ -29,6 +29,8 @@ internal sealed class AppController : IDisposable
     private const int CmdRefresh = 3;
     private const int CmdExit = 4;
     private const int CmdStartup = 5;
+    private const int CmdCaptureScreen = 6;
+    private const int CmdCaptureRegion = 7;
 
     private const int ItemOpen = 101;
     private const int ItemOpenWith = 102;
@@ -43,6 +45,7 @@ internal sealed class AppController : IDisposable
     private TrayIcon? _tray;
     private FanWindow? _fan;
     private SettingsWindow? _settingsWindow;
+    private Screenshots.ScreenshotController? _screenshots;
     private AppSettings _settings = new();
     private string _folder = "";
     private DownloadsSnapshot? _snapshot;
@@ -84,6 +87,18 @@ internal sealed class AppController : IDisposable
         _monitor.SnapshotChanged += (_, snap) => _dispatcher.BeginInvoke(() => OnSnapshot(snap));
         _monitor.WatcherError += (_, ex) => Log.Error("Folder watcher error", ex);
         ApplyMonitorSettings();
+
+        try
+        {
+            _screenshots = new Screenshots.ScreenshotController(_dispatcher, () => _settings);
+            _screenshots.Start();
+        }
+        catch (Exception ex)
+        {
+            // The Downloads fan must keep working even if the screenshot feature can't start.
+            Log.Error("Screenshot feature failed to start", ex);
+            _screenshots = null;
+        }
 
         Log.Info($"Started. Folder: {_folder}");
         if (openFanNow)
@@ -157,6 +172,10 @@ internal sealed class AppController : IDisposable
         _fan?.CloseFan(animate: false);
         var menu = new NativeMenu()
             .Add(CmdOpenFolder, "Open Downloads Folder", isDefault: true)
+            .AddSeparator()
+            .Add(CmdCaptureScreen, "Capture Screen\t" + ShortcutLabel(_settings.FullScreenShortcut), enabled: _screenshots is not null && _settings.ScreenshotsEnabled)
+            .Add(CmdCaptureRegion, "Capture Area\t" + ShortcutLabel(_settings.RegionShortcut), enabled: _screenshots is not null && _settings.ScreenshotsEnabled)
+            .AddSeparator()
             .Add(CmdSettings, "Settings…")
             .Add(CmdRefresh, "Refresh")
             .AddSeparator()
@@ -167,6 +186,8 @@ internal sealed class AppController : IDisposable
         switch (cmd)
         {
             case CmdOpenFolder: OpenFolder(_folder); break;
+            case CmdCaptureScreen: _ = _screenshots?.CaptureFullScreenAsync(); break;
+            case CmdCaptureRegion: _ = _screenshots?.CaptureRegionAsync(); break;
             case CmdSettings: ShowSettings(); break;
             case CmdRefresh: Refresh(); break;
             case CmdStartup:
@@ -178,6 +199,8 @@ internal sealed class AppController : IDisposable
             case CmdExit: Application.Current.Shutdown(); break;
         }
     }
+
+    private static string ShortcutLabel(string shortcut) => string.IsNullOrEmpty(shortcut) ? "" : shortcut;
 
     private void Refresh()
     {
@@ -315,7 +338,8 @@ internal sealed class AppController : IDisposable
             _settingsWindow.Activate();
             return;
         }
-        var vm = new SettingsViewModel(_settings with { StartWithWindows = StartupManager.IsEnabled() }, KnownFolders.GetDownloadsFolder());
+        var vm = new SettingsViewModel(_settings with { StartWithWindows = StartupManager.IsEnabled() }, KnownFolders.GetDownloadsFolder(),
+            Screenshots.ScreenshotStore.WindowsScreenshotsFolder(), _screenshots?.Hotkeys, _screenshots?.ShortcutProblems);
         _settingsWindow = new SettingsWindow(vm);
         vm.Saved += ApplySettings;
         vm.ClearCacheRequested += () => _thumbnails.ClearAll();
@@ -342,6 +366,7 @@ internal sealed class AppController : IDisposable
             OnSnapshot(_snapshot);
         }
         _fan?.ApplyTheme(IsDark);
+        _screenshots?.ApplySettings();
     }
 
     private void TrySave(AppSettings settings)
@@ -355,6 +380,7 @@ internal sealed class AppController : IDisposable
         if (_disposed) return;
         _disposed = true;
         _monitor.Dispose();
+        _screenshots?.Dispose();
         _tray?.Dispose();
         _thumbnails.Dispose();
         _fan?.Close();

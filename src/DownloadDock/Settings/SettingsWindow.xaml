@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:DownloadDock.Settings"
         x:ClassModifier="internal"
         Title="DownloadDock Settings"
-        Width="560" SizeToContent="Height"
+        Width="600" SizeToContent="Height" MaxHeight="900"
         MinWidth="480"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
@@ -12,6 +12,7 @@
         FontFamily="Segoe UI Variable Text, Segoe UI"
         FontSize="14">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -41,7 +42,8 @@
 
         <TextBlock Text="Settings" FontSize="26" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display, Segoe UI" />
 
-        <StackPanel Grid.Row="1">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,-12,0" Padding="0,0,12,0">
+        <StackPanel>
             <!-- Folder -->
             <TextBlock Text="Downloads folder" Style="{StaticResource SectionHeader}" />
             <Border Style="{StaticResource Card}">
@@ -115,6 +117,67 @@
                 </StackPanel>
             </Border>
 
+            <!-- Screenshots -->
+            <TextBlock Text="Screenshots" Style="{StaticResource SectionHeader}" />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <CheckBox Content="Floating screenshot thumbnails and capture shortcuts" IsChecked="{Binding ScreenshotsEnabled}" />
+                    <Grid Margin="0,12,0,0" IsEnabled="{Binding ScreenshotsEnabled}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Capture screen" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding FullScreenShortcutDisplay, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center" AutomationProperties.Name="Capture screen shortcut" />
+                        <Button Grid.Column="2" Content="Change…" Margin="8,0,0,0" Command="{Binding RecordFullScreenCommand}" />
+                        <Button Grid.Column="3" Content="None" Margin="8,0,0,0" Command="{Binding ClearFullScreenCommand}" />
+                        <TextBlock Grid.Row="1" Text="Capture area" VerticalAlignment="Center" Margin="0,8,0,0" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RegionShortcutDisplay, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center" Margin="0,8,0,0" AutomationProperties.Name="Capture area shortcut" />
+                        <Button Grid.Row="1" Grid.Column="2" Content="Change…" Margin="8,8,0,0" Command="{Binding RecordRegionCommand}" />
+                        <Button Grid.Row="1" Grid.Column="3" Content="None" Margin="8,8,0,0" Command="{Binding ClearRegionCommand}" />
+                    </Grid>
+                    <TextBlock Margin="0,6,0,0" Style="{StaticResource Hint}" Foreground="#FFD13438" Text="{Binding ShortcutMessage}"
+                               Visibility="{Binding HasShortcutMessage, Converter={StaticResource BoolToVis}}" />
+                    <Button Margin="0,8,0,0" HorizontalAlignment="Left" Content="Restore Win + Shift + 3 / 4" Command="{Binding ResetShortcutsCommand}" />
+
+                    <TextBlock Margin="0,14,0,6" Text="Save screenshots" FontWeight="SemiBold" />
+                    <RadioButton GroupName="SaveMode" Content="Automatically, in the screenshot folder" IsChecked="{Binding SaveScreenshotsPermanently}" />
+                    <RadioButton GroupName="SaveMode" Margin="0,4,0,0" Content="Temporarily, until I choose Save (removed after a day)" IsChecked="{Binding SaveScreenshotsTemporarily}" />
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding EffectiveScreenshotFolder, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center" AutomationProperties.Name="Screenshot folder" />
+                        <Button Grid.Column="1" Content="Browse…" Margin="8,0,0,0" Command="{Binding BrowseScreenshotFolderCommand}" />
+                        <Button Grid.Column="2" Content="Default" Margin="8,0,0,0" Command="{Binding ResetScreenshotFolderCommand}" ToolTip="Pictures\Screenshots" />
+                    </Grid>
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="48" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Thumbnail stays for" VerticalAlignment="Center" />
+                        <Slider Grid.Column="1" Minimum="{Binding MinThumbnailSeconds}" Maximum="{Binding MaxThumbnailSeconds}" Value="{Binding ThumbnailSeconds}"
+                                IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" AutomationProperties.Name="Thumbnail duration" />
+                        <TextBlock Grid.Column="2" Text="{Binding ThumbnailSeconds, StringFormat={}{0} s}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <CheckBox Margin="0,12,0,0" Content="Also show thumbnails for Snipping Tool, Win + Shift + S and Print Screen" IsChecked="{Binding DetectWindowsScreenshots}" />
+                    <TextBlock Margin="24,4,0,0" Style="{StaticResource Hint}"
+                               Text="Detected from new files in your Screenshots folder and from the Snipping Tool's clipboard images. DownloadDock only reads the clipboard; it never changes it." />
+                </StackPanel>
+            </Border>
+
             <!-- System -->
             <TextBlock Text="System" Style="{StaticResource SectionHeader}" />
             <Border Style="{StaticResource Card}">
@@ -127,6 +190,7 @@
                 </StackPanel>
             </Border>
         </StackPanel>
+        </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button Content="Save" MinWidth="96" IsDefault="True" Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />

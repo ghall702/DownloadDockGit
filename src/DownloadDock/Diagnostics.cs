@@ -38,6 +38,9 @@ internal static class Diagnostics
                         count: args.Length > 4 && int.TryParse(args[4], out var c) ? c : 9,
                         thumbSize: args.Length > 5 && int.TryParse(args[5], out var s) ? s : 96);
                     return true;
+                case "--toast-snapshot" when args.Length >= 3:
+                    exitCode = RenderToastSnapshot(args[1], args[2], dark: args.Length > 3 && args[3].Equals("dark", StringComparison.OrdinalIgnoreCase));
+                    return true;
                 default:
                     return false;
             }
@@ -221,6 +224,61 @@ internal static class Diagnostics
         fan.Close();
         // Guard against regressions: every card must have a laid-out name label.
         return views.All(v => v.labelWidth > 40) && fan.RelayoutCount == 1 ? 0 : 3;
+    }
+
+    /// <summary>Shows a real floating screenshot thumbnail for an image and renders it over a desktop-like background.</summary>
+    private static int RenderToastSnapshot(string imagePath, string output, bool dark)
+    {
+        var settings = new AppSettings { AnimationSpeed = AnimationSpeed.Off, Theme = dark ? ThemePreference.Dark : ThemePreference.Light, ScreenshotThumbnailSeconds = 30 };
+        BitmapSource image;
+        using (var fs = File.OpenRead(Path.GetFullPath(imagePath)))
+        {
+            var bi = new BitmapImage();
+            bi.BeginInit();
+            bi.CacheOption = BitmapCacheOption.OnLoad;
+            bi.StreamSource = fs;
+            bi.EndInit();
+            bi.Freeze();
+            image = bi;
+        }
+        var store = new Screenshots.ScreenshotStore(() => settings);
+        var item = Screenshots.ScreenshotStore.FromExistingFile(Path.GetFullPath(imagePath), image, "diagnostics", IntPtr.Zero);
+        using var manager = new Screenshots.ScreenshotToastManager(() => settings, store, Dispatcher.CurrentDispatcher);
+        var toast = manager.Show(item);
+        Pump(TimeSpan.FromMilliseconds(500));
+
+        var root = (FrameworkElement)toast.Content;
+        root.UpdateLayout();
+        var w = (int)Math.Ceiling(root.ActualWidth);
+        var h = (int)Math.Ceiling(root.ActualHeight);
+        var toastBitmap = new RenderTargetBitmap(Math.Max(1, w), Math.Max(1, h), 96, 96, PixelFormats.Pbgra32);
+        toastBitmap.Render(root);
+
+        // Compose a bottom-right corner of a desktop: wallpaper, taskbar, the thumbnail above it.
+        const int canvasW = 520, canvasH = 360, taskbarH = 48;
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0x1E, 0x4F, 0xC7), Color.FromRgb(0x7F, 0xA8, 0xE8), 45), null, new Rect(0, 0, canvasW, canvasH));
+            dc.DrawRectangle(new SolidColorBrush(dark ? Color.FromRgb(0x1C, 0x22, 0x33) : Color.FromRgb(0xEE, 0xF1, 0xF6)), null, new Rect(0, canvasH - taskbarH, canvasW, taskbarH));
+            // Same placement rule as the real stack: 16 DIP from the work-area corner.
+            var cardX = canvasW - Core.Screenshots.ToastStackLayout.Margin - toast.CardWidth;
+            var cardY = canvasH - taskbarH - Core.Screenshots.ToastStackLayout.Margin - toast.CardHeight;
+            dc.DrawImage(toastBitmap, new Rect(cardX - Screenshots.ScreenshotToastWindow.ShadowPad, cardY - Screenshots.ScreenshotToastWindow.ShadowPad, w, h));
+        }
+        var rtb = new RenderTargetBitmap(canvasW, canvasH, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(visual);
+        SavePng(rtb, output);
+
+        var hwnd = toast.Handle;
+        WriteReport(output, new
+        {
+            card = new { width = toast.CardWidth, height = toast.CardHeight },
+            window = toast.CurrentRect.ToString(),
+            activated = NativeMethods.GetForegroundWindow() == hwnd,
+            visible = toast.IsVisible,
+        });
+        return toast.IsVisible && NativeMethods.GetForegroundWindow() != hwnd ? 0 : 3;
     }
 
     private static void Wait(Task task, TimeSpan timeout)

@@ -26,6 +26,8 @@ internal partial class SettingsWindow
         DataContext = vm;
         vm.CloseRequested += Close;
         vm.BrowseRequested += PickFolder;
+        vm.BrowseScreenshotFolderRequested += PickFolder;
+        Closed += (_, _) => vm.CancelRecording();
         try
         {
             Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/Assets/DownloadDock.ico"));
