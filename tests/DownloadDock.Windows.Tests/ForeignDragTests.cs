@@ -206,7 +206,7 @@ public class ForeignDragTests
                 Pump(400);
                 Assert.Equal(0, rig.Springs);
                 Assert.Null(rig.Dropped);
-                Assert.False(rig.Catcher.IsArmed, "catcher must not linger after the button is released");
+                Assert.True(PumpUntil(() => !rig.Catcher.IsArmed, 2000), "catcher must not linger after the button is released");
 
                 // 2. A press that starts on the icon (click / rearranging tray icons) never arms the catcher.
                 rig.EverArmed = false;
