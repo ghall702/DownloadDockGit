@@ -41,6 +41,8 @@ internal partial class FanWindow
     private Point _origin;          // DIP position of the window's top-left in the layout space
     private double _windowScale = 1; // DIP → px for the window's monitor
     private bool _pendingRefresh;
+    private bool _repositionPending;
+    private Rect _windowRectDip;
 
     private FanItemView? _pressed;
     private Point _pressWindowPoint;
@@ -84,10 +86,18 @@ internal partial class FanWindow
         PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
         MouseWheel += OnMouseWheel;
         PreviewKeyDown += OnPreviewKeyDown;
-        DpiChanged += (_, _) =>
+        DpiChanged += (_, e) =>
         {
             DpiChangeCount++;
-            if (IsOpen && !IsClosing && !IsDragging) Relayout(animate: false);
+            // Only a real DPI change matters, and never act inside the WM_DPICHANGED handler itself:
+            // moving the window from here re-triggers the message and would loop. Coalesce and defer.
+            if (Math.Abs(e.NewDpi.DpiScaleX - e.OldDpi.DpiScaleX) < 0.001 || _repositionPending) return;
+            _repositionPending = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            {
+                _repositionPending = false;
+                if (IsOpen && !IsClosing && !IsDragging) PositionWindow();
+            });
         };
     }
 
@@ -119,10 +129,9 @@ internal partial class FanWindow
         NativeMethods.SetForegroundWindow(Handle);
         Focus();
 
-        // If WPF picked up a different DPI than the target monitor's, re-place with the real one.
-        var actual = VisualTreeHelper.GetDpi(this).DpiScaleX;
-        if (Math.Abs(actual - anchor.DpiScale) > 0.01)
-            Relayout(animate: false, buildOnly: true);
+        // Showing can move the window onto a monitor with a different DPI; re-apply the exact
+        // physical placement once (the cards themselves are in DIPs and don't need rebuilding).
+        PositionWindow();
 
         AnimateOpen();
     }
@@ -229,15 +238,23 @@ internal partial class FanWindow
         var bottom = Math.Min(b.Bottom, mon.Bottom);
         _origin = new Point(left, top);
         _windowScale = scale;
+        _windowRectDip = new Rect(left, top, right - left, bottom - top);
 
         RebuildViews(animateSwap: animate && !buildOnly);
+        PositionWindow();
+    }
 
-        Width = right - left;
-        Height = bottom - top;
-        var hwnd = Handle;
-        NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST,
-            (int)Math.Round(left * scale), (int)Math.Round(top * scale),
-            (int)Math.Ceiling((right - left) * scale), (int)Math.Ceiling((bottom - top) * scale),
+    /// <summary>Applies the computed window rectangle in physical pixels of the target monitor.</summary>
+    private void PositionWindow()
+    {
+        if (_windowRectDip.IsEmpty) return;
+        var r = _windowRectDip;
+        var scale = _windowScale;
+        Width = r.Width;
+        Height = r.Height;
+        NativeMethods.SetWindowPos(Handle, NativeMethods.HWND_TOPMOST,
+            (int)Math.Round(r.X * scale), (int)Math.Round(r.Y * scale),
+            (int)Math.Ceiling(r.Width * scale), (int)Math.Ceiling(r.Height * scale),
             NativeMethods.SWP_NOACTIVATE);
     }
 

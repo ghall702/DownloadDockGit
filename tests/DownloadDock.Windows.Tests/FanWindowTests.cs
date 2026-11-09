@@ -50,24 +50,16 @@ public class FanWindowTests
                 var canvas = (Canvas)fan.Content;
                 var views = canvas.Children.OfType<FanItemView>().OrderBy(v => v.SlotIndex).ToList();
                 Assert.Equal(9, views.Count);
+                // Opening must lay the fan out exactly once (a DPI/position feedback loop once rebuilt it endlessly).
+                Assert.Equal(1, fan.RelayoutCount);
                 Assert.True(views[^1].ViewModel.IsFolderItem);
                 Assert.Equal("file0.pdf", views[0].ViewModel.DisplayName); // newest closest to the icon
                 Assert.Contains("12 more", views[^1].ViewModel.Subtitle);
 
                 // Real layout sizes (not just view-model values): name visible, card sized to the preview.
                 fan.UpdateLayout();
-                var v0 = views[0];
-                var probe = $"label={v0.LabelPill.ActualWidth} textDesired={v0.NameText.DesiredSize.Width} text='{v0.NameText.Text}' " +
-                            $"textValid={v0.NameText.IsMeasureValid} viewValid={v0.IsMeasureValid} canvasValid={canvas.IsMeasureValid} " +
-                            $"windowValid={fan.IsMeasureValid} visible={fan.IsVisible} viewVisible={v0.IsVisible} card={v0.Card.ActualWidth}";
-                v0.NameText.InvalidateMeasure();
-                v0.InvalidateMeasure();
-                fan.UpdateLayout();
-                probe += $" | after invalidate: label={v0.LabelPill.ActualWidth} textValid={v0.NameText.IsMeasureValid} viewValid={v0.IsMeasureValid}";
-                v0.Measure(new Size(v0.Width, v0.Height));
-                v0.Arrange(new Rect(Canvas.GetLeft(v0), Canvas.GetTop(v0), v0.Width, v0.Height));
-                probe += $" | after explicit measure: label={v0.LabelPill.ActualWidth} textDesired={v0.NameText.DesiredSize.Width}";
-                Assert.True(views[0].LabelPill.ActualWidth > 40, probe);
+                Assert.True(views[0].LabelPill.ActualWidth > 40, $"label pill is only {views[0].LabelPill.ActualWidth} wide");
+                Assert.Equal(views[0].ViewModel.ThumbWidth, views[0].Card.ActualWidth, 1);
                 Assert.True(views[^1].LabelPill.ActualWidth > 100, $"folder label pill is only {views[^1].LabelPill.ActualWidth} wide");
 
                 // Each item is rotated more than the one below it, and positioned higher.

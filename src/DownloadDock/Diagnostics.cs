@@ -218,7 +218,8 @@ internal static class Diagnostics
         });
         fan.CloseFan(animate: false);
         fan.Close();
-        return 0;
+        // Guard against regressions: every card must have a laid-out name label.
+        return views.All(v => v.labelWidth > 40) && fan.RelayoutCount == 1 ? 0 : 3;
     }
 
     private static void Wait(Task task, TimeSpan timeout)
