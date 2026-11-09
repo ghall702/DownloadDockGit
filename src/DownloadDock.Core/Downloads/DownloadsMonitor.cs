@@ -124,7 +124,10 @@ public sealed class DownloadsMonitor : IDisposable
     {
         WatcherError?.Invoke(this, e.GetException());
         // Buffer overflow or lost handle: rebuild the watcher shortly and rescan everything.
-        _recoveryTimer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+        lock (_gate)
+        {
+            if (!_disposed) _recoveryTimer.Change(TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+        }
     }
 
     private void Recover()

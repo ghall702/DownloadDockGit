@@ -117,7 +117,7 @@ public class ThumbnailTests
 
             var s = DocumentPreviewRenderer.RenderSlide(slide, 200);
             Assert.Equal(200, s.PixelWidth);              // 16:9 slide
-            Assert.Equal(113, s.PixelHeight);
+            Assert.InRange(s.PixelHeight, 112, 113); // 200 × 9/16 = 112.5
             var bg = Pixels.At(s, 3, 3);                   // gradient starts at accent1 (orange)
             Assert.True(bg.R > 150 && bg.B < 120, $"slide background should be the theme gradient, got {bg}");
 

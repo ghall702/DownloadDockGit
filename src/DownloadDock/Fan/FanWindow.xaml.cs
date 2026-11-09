@@ -295,8 +295,9 @@ internal partial class FanWindow
         var px = ThumbnailPixels();
         _thumbnails.GetIconAsync(_folder, px).ContinueWith(t =>
         {
-            if (t.Status == TaskStatus.RanToCompletion && t.Result is { } img) vm.SetThumbnail(img, isIcon: true);
-        }, TaskScheduler.FromCurrentSynchronizationContext());
+            if (t.Status == TaskStatus.RanToCompletion && t.Result is { } img)
+                Dispatcher.BeginInvoke(() => vm.SetThumbnail(img, isIcon: true));
+        }, TaskScheduler.Default);
         return vm;
     }
 
@@ -326,9 +327,12 @@ internal partial class FanWindow
         {
             _thumbnails.GetAsync(entry, px).ContinueWith(t =>
             {
-                if (t.Status == TaskStatus.RanToCompletion && t.Result is { } r && vm.Entry == entry)
-                    vm.SetThumbnail(r.Image, r.IsIcon);
-            }, TaskScheduler.FromCurrentSynchronizationContext());
+                if (t.Status == TaskStatus.RanToCompletion && t.Result is { } r)
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (vm.Entry == entry) vm.SetThumbnail(r.Image, r.IsIcon);
+                    });
+            }, TaskScheduler.Default);
         }
         return vm;
     }
