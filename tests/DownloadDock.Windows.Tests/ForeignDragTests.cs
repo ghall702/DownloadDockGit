@@ -113,7 +113,7 @@ public class ForeignDragTests
             Watcher = new ForeignDragWatcher(Dispatcher.CurrentDispatcher);
             Watcher.SetTarget(Icon);
             Watcher.DragApproachingTarget += () => { Catcher.Arm(Icon); EverArmed = true; };
-            Watcher.ButtonReleased += () => Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, Catcher.Disarm);
+            Watcher.ButtonReleased += Catcher.DisarmAfterRelease;
         }
 
         public void Dispose()

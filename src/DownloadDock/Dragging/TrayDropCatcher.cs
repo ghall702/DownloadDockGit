@@ -93,14 +93,38 @@ internal sealed class TrayDropCatcher : Window
     /// <summary>Covers the given screen rectangle (physical pixels) without activating.</summary>
     public void Arm(RECT iconRect)
     {
+        _disarmTimer?.Stop();
         var hwnd = Handle;
         Show();
         NativeMethods.SetWindowPos(hwnd, NativeMethods.HWND_TOPMOST, iconRect.Left, iconRect.Top, iconRect.Width, iconRect.Height,
             NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
     }
 
+    private DispatcherTimer? _disarmTimer;
+
+    /// <summary>
+    /// Disarms shortly after the mouse button is released. The low-level hook sees the release before OLE
+    /// delivers the (cross-process) Drop, so hiding immediately would make the drop land on the tray
+    /// underneath instead of here.
+    /// </summary>
+    public void DisarmAfterRelease()
+    {
+        _disarmTimer ??= new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(750) };
+        _disarmTimer.Tick -= OnDisarmTimer;
+        _disarmTimer.Tick += OnDisarmTimer;
+        _disarmTimer.Stop();
+        _disarmTimer.Start();
+    }
+
+    private void OnDisarmTimer(object? sender, EventArgs e)
+    {
+        _disarmTimer?.Stop();
+        Disarm();
+    }
+
     public void Disarm()
     {
+        _disarmTimer?.Stop();
         Unhover();
         if (IsVisible) Hide();
     }

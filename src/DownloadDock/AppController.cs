@@ -249,7 +249,7 @@ internal sealed class AppController : IDisposable
                 if (_fan is { IsOpen: true, IsClosing: false }) return; // the fan itself is the target then
                 _catcher.Arm(rect);
             };
-            _dragWatcher.ButtonReleased += () => _dispatcher.BeginInvoke(DispatcherPriority.Background, () => _catcher?.Disarm());
+            _dragWatcher.ButtonReleased += () => _catcher?.DisarmAfterRelease();
             _dragWatcher.SetTarget(_tray?.GetIconRect());
             if (!_dragWatcher.IsHooked) Log.Error("Dropping files from other apps on the tray icon is unavailable (mouse hook refused)");
         }
