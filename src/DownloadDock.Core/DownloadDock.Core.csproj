@@ -4,6 +4,9 @@
     <RootNamespace>DownloadDock.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DownloadDock.Integration\DownloadDock.Integration.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="DownloadDock.Core.Tests" />
   </ItemGroup>
 </Project>
