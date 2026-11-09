@@ -2,6 +2,10 @@
 
 **The macOS Dock "Downloads" fan, brought to the Windows 11 system tray.**
 
+DownloadDock also brings over macOS's **floating screenshot thumbnail**: press Win+Shift+3 or
+Win+Shift+4 and a preview slides into the bottom-right corner, ready to drag straight into an email,
+a slide or a chat (see [Screenshots](#screenshots)).
+
 Click the Downloads icon next to Wi-Fi, volume and battery and your most recent downloads rise from
 it in a curved, overlapping fan. Each one shows a real preview of its contents: the first page of a
 PDF, the photo itself, the first slide of a deck. Click a file to open it, or drag it straight into
@@ -36,6 +40,59 @@ in for context.</sub>
 | **Settings** | Folder, visible files, thumbnail size, animation speed (Off/Fast/Normal/Slow), theme (System/Light/Dark), start with Windows, show extensions, include subfolders, close after drop. Stored in `%APPDATA%\DownloadDock\settings.json`. |
 | **Keyboard** | ↑/↓ to move, Enter/Space to open, Esc to close, PgUp/PgDn to page, Menu key for the context menu. |
 | **Item menu** | Right-click a card for Open, Open with…, Show in folder, Copy (puts the real file on the clipboard) and Copy as path. |
+
+
+## Screenshots
+
+| | |
+|---|---|
+| **Win + Shift + 3** | Captures the screen the mouse is on. |
+| **Win + Shift + 4** | Freezes the screen and dims it; drag a rectangle with the crosshair (live W × H shown). **Esc** or right-click cancels. Works across monitors with different scaling. |
+| Tray menu | *Capture Screen* / *Capture Area* do the same. |
+
+A thumbnail of the capture slides in just above the taskbar in the bottom-right corner, like macOS:
+
+- **Drag it** into PowerPoint, Gmail or Canva in Chrome, Spark, Explorer… The app receives the actual
+  **PNG file**, through the same native drag-and-drop as the Downloads fan (copy only; the file can't
+  be moved or deleted by the drop).
+- It stays for **10 seconds** (configurable from 3 to 60). **Hovering** pauses the countdown, and so does
+  dragging. It goes away by itself, after a successful drop, or when you **swipe it to the right**.
+- **Click** it to open the preview/editor: pen, highlighter, crop, undo, copy, Save As, open in your
+  image app, delete, and a *Drag* handle that drops the edited image. **Done** saves your edits into
+  the screenshot file.
+- **Right-click** it for Open, Edit, Copy, Save to Screenshots folder (temporary mode only), Save As,
+  Show in folder and Dismiss.
+- New screenshots stack above older ones (up to four per screen). A thumbnail you're dragging is
+  never moved or closed.
+- It never takes focus from the app you're working in, and it's excluded from later screenshots.
+
+**Storage** (Settings › Screenshots):
+- *Automatically* (default): saved straight into **Pictures\Screenshots** (the Windows "Screenshots"
+  known folder, or a folder you choose) as `Screenshot 2026-11-09 08-30-15.png`. Existing files are
+  never overwritten; a later capture becomes `… (2).png`.
+- *Temporarily*: kept in `%LOCALAPPDATA%\DownloadDock\Screenshots` until you choose **Save**. Temporary
+  files are removed only after **24 hours** (so any app you dropped one into has long finished reading
+  it), and never while one is being dragged.
+
+**Windows' own screenshot tools.** With *Also show thumbnails for Snipping Tool, Win + Shift + S and
+Print Screen* switched on, DownloadDock shows its thumbnail for those captures too. It uses two
+supported, read-only signals and never changes the clipboard or blocks Windows' shortcuts:
+
+1. **A new image file in your Screenshots folder.** Snipping Tool's *Automatically save screenshots*
+   (on by default in Windows 11) and **Win + PrtScn** both write there.
+2. **A clipboard update carrying an image** whose owner is a Windows capture tool (`SnippingTool`,
+   `ScreenClippingHost`), or that arrives within 4 seconds of a **Print Screen** key press.
+
+When one capture produces both signals, the saved file is used and you see a single thumbnail. A
+clipboard-only capture is saved according to the storage setting, so it can be dragged as a file.
+
+**Shortcut notes.** Windows itself uses Win+Shift+<number> to open a new instance of the n-th taskbar
+app, so a normal hotkey registration can't claim Win+Shift+3/4. DownloadDock uses a low-level keyboard
+hook on its own thread instead. It consumes **only** the exact shortcuts you configured, and sends a
+harmless unassigned key so releasing Win doesn't open the Start menu. Everything else, including
+Win+Shift+S and Print Screen, passes through untouched. You can change both shortcuts in Settings
+(click *Change…* and press the new combination). Shortcuts Windows reserves (Win+Shift+S, Print
+Screen, Win+L…) and shortcuts that would block normal typing are refused.
 
 ---
 
@@ -118,6 +175,8 @@ src/
     Previews/                 SafePackage (zip-bomb/XXE-safe), DocxParser, PptxParser, XlsxParser,
                               EmbeddedThumbnail, TextPreviewReader
     Settings/                 AppSettings, SettingsStore
+    Screenshots/              Hotkey (parse/validate), ScreenshotNaming, ScreenshotCorrelator,
+                              ToastStackLayout, TemporaryScreenshotPolicy
   DownloadDock/               net10.0-windows WPF app
     Tray/                     TrayIcon (Shell_NotifyIcon v4), TrayIconRenderer, NativeMenu
     Fan/                      FanWindow (layout, animation, hit-test, drag), FanItemView, FanAnchorResolver
@@ -125,6 +184,9 @@ src/
     Thumbnails/               ThumbnailService (STA pool, LRU + disk cache), PdfThumbnailer (PDFium),
                               ImageThumbnailer (WIC), ShellThumbnailer, DocumentPreviewRenderer
     Settings/                 SettingsWindow (WPF Fluent theme) + view model
+    Screenshots/              HotkeyService (LL keyboard hook thread), ScreenCapture (GDI, per-monitor DPI),
+                              RegionSelector (frozen overlay per monitor), ScreenshotToastWindow/Manager,
+                              ScreenshotStore, WindowsScreenshotDetector, ScreenshotEditorWindow
 tests/
   DownloadDock.Core.Tests     cross-platform (101 tests)
   DownloadDock.Windows.Tests  PDFium, WIC, Shell, OLE drag end-to-end, fan window, Explorer drop
@@ -171,6 +233,20 @@ external links are never touched.
 
 ## Known limitations
 
+- **Screenshots:**
+  - Clipboard-only captures can't always be detected reliably, and are deliberately not treated as
+    screenshots unless they come from the Snipping Tool or follow a Print Screen press. Third-party
+    capture tools, Print Screen with *"Use the Print screen key to open screen capture"* turned off
+    *and* auto-save off, and apps that copy images for other reasons are not detected.
+  - Snipping Tool shows its own notification in the same corner; you can turn that off in Snipping
+    Tool's settings.
+  - Win+Shift+3 captures the monitor under the mouse, not all monitors at once (macOS saves one file per
+    display). A rectangle selection stays on the monitor where you started dragging.
+  - DRM-protected video and some hardware-accelerated or HDR content can appear black in captures (GDI
+    BitBlt); the mouse pointer isn't included, as on macOS.
+  - A low-level keyboard hook can be refused by some security software or anti-cheat systems. The
+    shortcuts then don't work, but the tray menu's capture items still do.
+  - The editor's crop is a single drag (no adjustable handles); markup can't be edited after a crop.
 - **Office previews without Office are approximations.** The built-in renderer handles text,
   headings, lists, tables, pictures, theme colours, gradients and simple shapes. It does not handle
   charts, SmartArt, WordArt, custom geometry, columns, headers/footers, or exact line breaking and

@@ -133,6 +133,12 @@ public class ScreenshotTests
             var win = ColourWindow(Color.FromRgb(0xD0, 0x20, 0x20), 240, 240, 300, 220);
             try
             {
+                // Make sure the red window is really on screen before the desktop gets frozen.
+                Assert.True(PumpUntil(() =>
+                {
+                    var probe = Pixels.At(ScreenCapture.Capture(new Interop.RECT(350, 330, 352, 332)), 0, 0);
+                    return probe.R > 170 && probe.G < 70;
+                }, 5000), "test window never became visible");
                 var selector = new RegionSelector(null);
                 selector.Shown += () =>
                 {
