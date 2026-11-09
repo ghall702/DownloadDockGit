@@ -70,6 +70,7 @@ internal static class Diagnostics
 
     private static int RenderFanSnapshot(string folder, string output, bool dark, int count, int thumbSize)
     {
+        folder = Path.GetFullPath(folder);
         var settings = new AppSettings
         {
             VisibleFiles = count,

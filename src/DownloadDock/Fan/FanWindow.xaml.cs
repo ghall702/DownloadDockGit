@@ -316,6 +316,7 @@ internal partial class FanWindow
         };
         vm.Subtitle = OverflowText();
         var px = ThumbnailPixels();
+        vm.SetThumbnail(FolderGlyph.Get(), isIcon: true); // replaced by the real Shell folder icon when it arrives
         _thumbnails.GetIconAsync(_folder, px).ContinueWith(t =>
         {
             if (t.Status == TaskStatus.RanToCompletion && t.Result is { } img)

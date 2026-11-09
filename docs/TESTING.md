@@ -9,7 +9,7 @@ exercised it.
 | Environment | What ran |
 |---|---|
 | Linux dev container (.NET 10.0.403) | Full solution build, including WPF via `EnableWindowsTargeting`; 101 Core tests; self-contained `win-x64` single-file publish |
-| GitHub Actions `windows-latest` (Windows Server 2025, interactive desktop session), workflow `.github/workflows/build.yml` | Release build; 101 Core tests; 28 Windows tests (PDFium, WIC, Shell, real OLE drags, File Explorer drop, fan window); self-contained publish; smoke test of the **published exe** (`scripts/snapshot.ps1`) |
+| GitHub Actions `windows-latest` (Windows Server 2025, interactive desktop session), workflow `.github/workflows/build.yml` | Release build; 101 Core tests; 29 Windows tests (PDFium, WIC, Shell, real OLE drags, File Explorer drop, fan window); self-contained publish; smoke test of the **published exe** (`scripts/snapshot.ps1`) |
 
 The CI run for the final commit passed every step. Test results (`.trx`) and rendered snapshots are
 uploaded as the `test-results-and-snapshots` artifact, and the executable as `DownloadDock-win-x64`.
@@ -56,6 +56,7 @@ uploaded as the `test-results-and-snapshots` artifact, and the executable as `Do
 | The whole fan, rotated labels included, stays inside the work area for icons anywhere along the taskbar; the curve flattens or mirrors near the right edge | `Fan_stays_within_the_work_area`, `Icon_near_the_right_edge_flattens_or_mirrors_the_curve` | ✅ |
 | Fewer items on short screens or with bigger thumbnails; top-taskbar (downward) fan; high-DPI DIP space | `FanLayoutTests` | ✅ |
 | Overflow paging (wheel / PgUp/PgDn) clamps correctly | `FanPagerTests` | ✅ |
+| Opening the fan lays it out exactly once, and each card has real layout sizes (name pill wide enough for the text; card sized to its preview) | `Opens_a_curved_fan_with_one_view_per_file_plus_the_folder_item`, `Item_view_binds_name_and_card_size_to_its_view_model` | ✅ Windows |
 | Fan window opens with one card per file plus the folder item; newest file at the bottom; rotation and height increase upward; **hit-testing the centre of each overlapping, rotated card returns that card** | `Opens_a_curved_fan_with_one_view_per_file_plus_the_folder_item` | ✅ Windows |
 | Empty folder shows only the folder item ("No downloads yet") | `Empty_folder_shows_only_the_folder_item` | ✅ Windows |
 | Closing the fan (animated) only hides it; it reopens; the app keeps running | `Closing_the_fan_only_hides_it` | ✅ Windows |
@@ -79,6 +80,21 @@ uploaded as the `test-results-and-snapshots` artifact, and the executable as `Do
 
 Round-trip, defaults, corrupt-file recovery (backed up as `.corrupt`) and range clamping:
 `SettingsStoreTests` ✅.
+
+### Visual check of the published exe
+
+CI runs `DownloadDock.exe --fan-snapshot` on a folder of sample downloads and renders the real fan
+window offscreen. The step fails if any card's name label wasn't laid out, or if opening the fan
+rebuilt the layout more than once. The latest snapshot is in
+[`docs/images/fan-snapshot.png`](images/fan-snapshot.png).
+
+**A bug this caught:** the first snapshots showed empty name pills and sliver-thin cards, even though
+every unit test passed. Probing the layout from inside the snapshot showed the window's `DpiChanged`
+handler re-ran the whole layout, whose `SetWindowPos` raised `DpiChanged` again. That rebuilt the fan
+hundreds of times a second (918 layouts during one snapshot), so the cards were never measured with
+their data and the CPU stayed busy. The handler now reacts only to a real DPI change, deferred and
+coalesced, and only repositions the window. Regression tests assert exactly one layout per open
+and real element sizes, and the smoke-test step got 3–5× faster.
 
 ## Not verified automatically: manual checklist
 
