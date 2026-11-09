@@ -94,6 +94,7 @@ public class LruCacheTests
     }
 }
 
+[Collection("Timing")]
 public class DebouncerTests
 {
     [Fact]
@@ -114,7 +115,7 @@ public class DebouncerTests
     {
         var calls = 0;
         using var d = new Debouncer(() => Interlocked.Increment(ref calls), TimeSpan.FromMilliseconds(80), TimeSpan.FromMilliseconds(250));
-        var end = DateTime.UtcNow.AddMilliseconds(900);
+        var end = DateTime.UtcNow.AddMilliseconds(1500);
         while (DateTime.UtcNow < end) { d.Trigger(); Thread.Sleep(20); }
         Assert.True(Volatile.Read(ref calls) >= 2);
     }

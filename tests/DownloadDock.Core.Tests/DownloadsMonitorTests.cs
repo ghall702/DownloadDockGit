@@ -3,6 +3,7 @@ using DownloadDock.Core.Downloads;
 
 namespace DownloadDock.Core.Tests;
 
+[Collection("Timing")]
 public class DownloadsMonitorTests
 {
     private static DownloadsMonitor NewMonitor() => new(TimeSpan.FromMilliseconds(80), new CompletionChecker { SettlePeriod = TimeSpan.Zero })
