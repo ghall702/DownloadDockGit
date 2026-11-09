@@ -320,7 +320,7 @@ internal static class DragDriver
 
 internal static class ExplorerWindow
 {
-    public static IntPtr Open(string folder)
+    public static IntPtr Open(string folder, int x = 640, int y = 120, int width = 760, int height = 560)
     {
         var before = Native.FindExplorerWindows();
         try
@@ -340,7 +340,7 @@ internal static class ExplorerWindow
                 if (before.Contains(h)) continue;
                 if (Native.GetTitle(h).Contains(name, StringComparison.OrdinalIgnoreCase))
                 {
-                    Native.SetWindowPos(h, IntPtr.Zero, 640, 120, 760, 560, 0x0040);
+                    Native.SetWindowPos(h, IntPtr.Zero, x, y, width, height, 0x0040);
                     Native.SetForegroundWindow(h);
                     Thread.Sleep(1500); // let the view finish loading
                     return h;

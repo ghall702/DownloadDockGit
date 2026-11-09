@@ -294,7 +294,9 @@ public class ScreenshotTests
         Skip.IfNot(Input.HasInteractiveDesktop(), "No interactive desktop");
         using var f = new TestFolder();
         var destination = Directory.CreateDirectory(Path.Combine(f.Path, "Shot Target " + Guid.NewGuid().ToString("N")[..6])).FullName;
-        var explorer = ExplorerWindow.Open(destination);
+        // Up and to the left of the thumbnail, fully on screen (even at 1024×768) – where you'd normally drag
+        // to. (A mostly rightward drag is the swipe-to-dismiss gesture, as on macOS.)
+        var explorer = ExplorerWindow.Open(destination, 30, 30, 560, 420);
         Skip.If(explorer == IntPtr.Zero, "File Explorer window could not be opened");
         try
         {
