@@ -45,6 +45,7 @@ internal sealed class AppController : IDisposable
     private TrayIcon? _tray;
     private FanWindow? _fan;
     private SettingsWindow? _settingsWindow;
+    private readonly Core.Downloads.DwellTrigger _springLoad = new();
     private Screenshots.ScreenshotController? _screenshots;
     private AppSettings _settings = new();
     private string _folder = "";
@@ -75,6 +76,9 @@ internal sealed class AppController : IDisposable
         _fan.OpenRequested += OnOpenRequested;
         _fan.ContextMenuRequested += OnItemContextMenu;
         _fan.DragFinished += (vm, result, effect) => Log.Info($"Drag of '{vm.Path}' finished: {result} (effect {effect})");
+        _fan.FilesDropped += CopyIntoDownloads;
+        FileDragSource.DragMoved += OnOwnDragMoved;
+        FileDragSource.DragEnded += _ => _springLoad.Reset();
         _ = _fan.Handle; // create the HWND up front so the first open is instant
 
         _tray = new TrayIcon("Downloads");
@@ -164,6 +168,57 @@ internal sealed class AppController : IDisposable
         }
         var anchor = FanAnchorResolver.Resolve(_tray.GetIconRect(), clickPoint);
         _fan.Open(anchor, snapshot?.Items ?? Array.Empty<DownloadEntry>(), snapshot?.TotalCount ?? 0, _folder, _settings, IsDark);
+    }
+
+    // ------------------------------------------------------------------ dropping onto the dock
+
+    /// <summary>
+    /// While a file is dragged out of DownloadDock (e.g. a screenshot thumbnail), resting it on the tray
+    /// icon springs the fan open so it can be dropped in – the notification area itself can't accept drops.
+    /// </summary>
+    private void OnOwnDragMoved(POINT p)
+    {
+        if (_fan is null || _tray is null || _fan.IsDragging) return;
+        if (_fan.IsOpen && !_fan.IsClosing) { _springLoad.Reset(); return; }
+        var inside = _tray.GetIconRect() is { } r && p.X >= r.Left - 6 && p.X < r.Right + 6 && p.Y >= r.Top - 6 && p.Y < r.Bottom + 6;
+        if (_springLoad.Update(inside, DateTime.UtcNow))
+            _dispatcher.BeginInvoke(() => OpenFanForDrop());
+    }
+
+    internal void OpenFanForDrop(FanAnchor? anchorOverride = null)
+    {
+        if (_fan is null || _tray is null || (_fan.IsOpen && !_fan.IsClosing)) return;
+        var snapshot = _snapshot ?? _monitor.Current;
+        var anchor = anchorOverride ?? FanAnchorResolver.Resolve(_tray.GetIconRect(), null);
+        Log.Info("Fan sprung open for a drop");
+        _fan.Open(anchor, snapshot?.Items ?? Array.Empty<DownloadEntry>(), snapshot?.TotalCount ?? 0, _folder, _settings, IsDark, forDrop: true);
+    }
+
+    /// <summary>Copies dropped files into the Downloads folder (never moves, never overwrites).</summary>
+    private void CopyIntoDownloads(string[] files)
+    {
+        var folder = _folder;
+        _ = Task.Run(() =>
+        {
+            foreach (var source in files)
+            {
+                try
+                {
+                    if (!File.Exists(source)) continue; // folders and virtual items are not copied
+                    var target = Core.Downloads.DropIntoFolder.UniqueCopyPath(folder, Path.GetFileName(source));
+                    File.Copy(source, target, overwrite: false);
+                    // A copy keeps the old write time; stamp it so it sorts as the newest download.
+                    File.SetCreationTimeUtc(target, DateTime.UtcNow);
+                    File.SetLastWriteTimeUtc(target, DateTime.UtcNow);
+                    Log.Info($"Dropped onto the fan: copied {source} -> {target}");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Log.Error($"Could not copy dropped file {source}", ex);
+                }
+            }
+            _monitor.RequestScan(immediate: true);
+        });
     }
 
     private void OnTrayContextMenu(POINT pt)
@@ -379,6 +434,7 @@ internal sealed class AppController : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        FileDragSource.DragMoved -= OnOwnDragMoved;
         _monitor.Dispose();
         _screenshots?.Dispose();
         _tray?.Dispose();

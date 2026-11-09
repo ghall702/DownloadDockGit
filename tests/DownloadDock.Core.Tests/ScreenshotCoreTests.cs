@@ -210,3 +210,47 @@ public class TemporaryScreenshotPolicyTests
         Assert.Equal(new[] { "old.png" }, delete);
     }
 }
+
+public class DropIntoFolderTests
+{
+    [Fact]
+    public void Copies_never_overwrite()
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.Combine("d", "shot.png"), Path.Combine("d", "shot (2).png") };
+        Assert.Equal(Path.Combine("d", "new.png"), DownloadDock.Core.Downloads.DropIntoFolder.UniqueCopyPath("d", "new.png", existing.Contains));
+        Assert.Equal(Path.Combine("d", "shot (3).png"), DownloadDock.Core.Downloads.DropIntoFolder.UniqueCopyPath("d", "shot.png", existing.Contains));
+    }
+
+    [Fact]
+    public void Detects_files_already_in_the_folder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "dl");
+        Assert.True(DownloadDock.Core.Downloads.DropIntoFolder.AllAlreadyIn(new[] { Path.Combine(folder, "a.pdf") }, folder + Path.DirectorySeparatorChar));
+        Assert.False(DownloadDock.Core.Downloads.DropIntoFolder.AllAlreadyIn(new[] { Path.Combine(folder, "a.pdf"), Path.Combine(Path.GetTempPath(), "b.png") }, folder));
+    }
+
+    [Fact]
+    public void Dwell_fires_once_after_resting_inside()
+    {
+        var t0 = new DateTime(2026, 11, 9, 9, 0, 0, DateTimeKind.Utc);
+        var d = new DownloadDock.Core.Downloads.DwellTrigger();
+        Assert.False(d.Update(true, t0));
+        Assert.False(d.Update(true, t0.AddMilliseconds(200)));
+        Assert.True(d.Update(true, t0.AddMilliseconds(400)));
+        Assert.False(d.Update(true, t0.AddMilliseconds(900)), "only once per visit");
+        Assert.False(d.Update(false, t0.AddSeconds(1)));
+        Assert.False(d.Update(true, t0.AddSeconds(2)));
+        Assert.True(d.Update(true, t0.AddSeconds(2.5)), "fires again on a new visit");
+    }
+
+    [Fact]
+    public void Passing_through_quickly_does_not_fire()
+    {
+        var t0 = DateTime.UtcNow;
+        var d = new DownloadDock.Core.Downloads.DwellTrigger();
+        Assert.False(d.Update(true, t0));
+        Assert.False(d.Update(false, t0.AddMilliseconds(100)));
+        Assert.False(d.Update(true, t0.AddMilliseconds(200)));
+        Assert.False(d.Update(true, t0.AddMilliseconds(400)));
+    }
+}

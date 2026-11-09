@@ -251,6 +251,9 @@ internal static class NativeMethods
     [DllImport("shell32.dll", PreserveSig = true)]
     public static extern int SHDoDragDrop(IntPtr hwnd, ComTypes.IDataObject pdata, IntPtr pdsrc, int dwEffect, out int pdwEffect);
 
+    [DllImport("shell32.dll", EntryPoint = "SHDoDragDrop", PreserveSig = true)]
+    public static extern int SHDoDragDropWithSource(IntPtr hwnd, ComTypes.IDataObject pdata, IntPtr pdsrc, int dwEffect, out int pdwEffect);
+
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     public static extern int DragQueryFileW(IntPtr hDrop, uint iFile, [Out] char[]? lpszFile, int cch);
 

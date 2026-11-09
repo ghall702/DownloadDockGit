@@ -30,6 +30,21 @@ public enum FileDragResult
 /// </summary>
 public static class FileDragSource
 {
+    /// <summary>Raised on the UI thread when a drag from DownloadDock starts.</summary>
+    public static event Action? DragStarted;
+
+    /// <summary>
+    /// Raised continuously during a drag from DownloadDock with the pointer position (physical pixels).
+    /// Used to spring-load the fan when a dragged screenshot rests on the tray icon.
+    /// </summary>
+    internal static event Action<POINT>? DragMoved;
+
+    /// <summary>Raised when a drag from DownloadDock has finished.</summary>
+    public static event Action<FileDragResult>? DragEnded;
+
+    /// <summary>True while a drag started by DownloadDock is in progress.</summary>
+    public static bool IsDragInProgress { get; private set; }
+
     private static readonly int CfPreferredDropEffect = NativeMethods.RegisterClipboardFormatW("Preferred DropEffect");
     private const int DSH_ALLOWDROPDESCRIPTIONTEXT = 0x0001;
     private const int AllowedEffects = NativeMethods.DROPEFFECT_COPY | NativeMethods.DROPEFFECT_LINK;
@@ -57,19 +72,75 @@ public static class FileDragSource
             if (dragImage is not null)
                 TrySetDragImage(dataObject, dragImage, cursorOffsetPx);
 
-            var hr = NativeMethods.SHDoDragDrop(ownerHwnd, dataObject, IntPtr.Zero, AllowedEffects, out effect);
-            Debug.WriteLine($"SHDoDragDrop hr=0x{hr:X8} effect={effect}");
-            if (hr == NativeMethods.DRAGDROP_S_DROP && effect != NativeMethods.DROPEFFECT_NONE)
-                return FileDragResult.Dropped;
-            if (hr == NativeMethods.DRAGDROP_S_DROP || hr == NativeMethods.DRAGDROP_S_CANCEL || hr == 0)
-                return effect != NativeMethods.DROPEFFECT_NONE ? FileDragResult.Dropped : FileDragResult.Cancelled;
-            return FileDragResult.Failed;
+            // Our own IDropSource behaves exactly like the default one (Esc cancels, releasing the button
+            // drops, standard cursors) but also reports the pointer position while dragging.
+            var source = new DropSource();
+            var sourcePtr = Marshal.GetComInterfaceForObject(source, typeof(IOleDropSource));
+            IsDragInProgress = true;
+            FileDragResult result;
+            try
+            {
+                DragStarted?.Invoke();
+                var hr = NativeMethods.SHDoDragDropWithSource(ownerHwnd, dataObject, sourcePtr, AllowedEffects, out effect);
+                Debug.WriteLine($"SHDoDragDrop hr=0x{hr:X8} effect={effect}");
+                if (hr == NativeMethods.DRAGDROP_S_DROP && effect != NativeMethods.DROPEFFECT_NONE)
+                    result = FileDragResult.Dropped;
+                else if (hr == NativeMethods.DRAGDROP_S_DROP || hr == NativeMethods.DRAGDROP_S_CANCEL || hr == 0)
+                    result = effect != NativeMethods.DROPEFFECT_NONE ? FileDragResult.Dropped : FileDragResult.Cancelled;
+                else
+                    result = FileDragResult.Failed;
+            }
+            finally
+            {
+                IsDragInProgress = false;
+                Marshal.Release(sourcePtr);
+            }
+            DragEnded?.Invoke(result);
+            return result;
         }
         finally
         {
             if (Marshal.IsComObject(dataObject))
                 Marshal.ReleaseComObject(dataObject);
         }
+    }
+
+    [ComImport]
+    [Guid("00000121-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IOleDropSource
+    {
+        [PreserveSig] int QueryContinueDrag(int fEscapePressed, int grfKeyState);
+        [PreserveSig] int GiveFeedback(int dwEffect);
+    }
+
+    /// <summary>Standard drop-source behaviour plus pointer reporting.</summary>
+    [ComVisible(true)]
+    [ClassInterface(ClassInterfaceType.None)]
+    internal sealed class DropSource : IOleDropSource
+    {
+        private const int MK_LBUTTON = 0x1, MK_RBUTTON = 0x2;
+        private const int DRAGDROP_S_USEDEFAULTCURSORS = 0x00040102;
+        private int _initialButtons = -1;
+
+        public int QueryContinueDrag(int fEscapePressed, int grfKeyState)
+        {
+            if (_initialButtons < 0) _initialButtons = grfKeyState & (MK_LBUTTON | MK_RBUTTON);
+            if (fEscapePressed != 0) return NativeMethods.DRAGDROP_S_CANCEL;
+            if ((grfKeyState & (MK_LBUTTON | MK_RBUTTON)) == 0 || (_initialButtons != 0 && (grfKeyState & _initialButtons) == 0))
+                return NativeMethods.DRAGDROP_S_DROP;
+            try
+            {
+                if (NativeMethods.GetCursorPos(out var p)) DragMoved?.Invoke(p);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("DragMoved handler failed: " + ex.Message); // never break the drag
+            }
+            return 0;
+        }
+
+        public int GiveFeedback(int dwEffect) => DRAGDROP_S_USEDEFAULTCURSORS;
     }
 
     /// <summary>

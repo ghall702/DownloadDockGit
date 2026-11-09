@@ -86,6 +86,21 @@ internal partial class FanWindow
         PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
         MouseWheel += OnMouseWheel;
         PreviewKeyDown += OnPreviewKeyDown;
+
+        // The fan is also an OLE drop target: files dropped on it are copied into the Downloads folder.
+        AllowDrop = true;
+        DragEnter += OnDragOverFan;
+        DragOver += OnDragOverFan;
+        DragLeave += OnDragLeaveFan;
+        Drop += OnDropOnFan;
+        _dropCloseTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher) { Interval = TimeSpan.FromMilliseconds(900) };
+        _dropCloseTimer.Tick += (_, _) =>
+        {
+            _dropCloseTimer.Stop();
+            // Close a drop-mode fan once the pointer has left it (and no drag of ours is still going on).
+            if (IsOpen && IsDropMode && !IsMouseOver && !_dragHovering && !FileDragSource.IsDragInProgress) CloseFan();
+            else if (IsOpen && IsDropMode) _dropCloseTimer.Start();
+        };
         DpiChanged += (_, e) =>
         {
             DpiChangeCount++;
@@ -109,8 +124,9 @@ internal partial class FanWindow
 
     // ------------------------------------------------------------------ public API
 
-    public void Open(FanAnchor anchor, IReadOnlyList<DownloadEntry> entries, int totalCount, string folder, AppSettings settings, bool dark)
+    public void Open(FanAnchor anchor, IReadOnlyList<DownloadEntry> entries, int totalCount, string folder, AppSettings settings, bool dark, bool forDrop = false)
     {
+        IsDropMode = forDrop;
         _closeTimer.Stop();
         _anchor = anchor;
         _entries = entries;
@@ -124,10 +140,21 @@ internal partial class FanWindow
         IsClosing = false;
         Relayout(animate: false, buildOnly: true);
 
-        Show();
-        Activate();
-        NativeMethods.SetForegroundWindow(Handle);
-        Focus();
+        if (forDrop)
+        {
+            // Sprung open by a drag resting on the tray icon: don't take focus away mid-drag.
+            ShowActivated = false;
+            Show();
+            ShowActivated = true;
+            SetDropSurface(true);
+        }
+        else
+        {
+            Show();
+            Activate();
+            NativeMethods.SetForegroundWindow(Handle);
+            Focus();
+        }
 
         // Showing can move the window onto a monitor with a different DPI; re-apply the exact
         // physical placement once (the cards themselves are in DIPs and don't need rebuilding).
@@ -420,6 +447,11 @@ internal partial class FanWindow
 
     private void FinishClose()
     {
+        _dropCloseTimer.Stop();
+        _dropCloseTimer.Interval = TimeSpan.FromMilliseconds(900);
+        _dragHovering = false;
+        IsDropMode = false;
+        SetDropSurface(false);
         _closeTimer.Stop();
         Hide();
         foreach (var v in _views) DetachView(v);
@@ -704,11 +736,84 @@ internal partial class FanWindow
         }
     }
 
+    // ------------------------------------------------------------------ drop target
+
+    private readonly DispatcherTimer _dropCloseTimer;
+    private bool _dragHovering;
+
+    /// <summary>Files dropped onto the fan (paths outside the Downloads folder).</summary>
+    public event Action<string[]>? FilesDropped;
+
+    /// <summary>True when the fan was sprung open by a drag (it then closes itself when the drag leaves).</summary>
+    public bool IsDropMode { get; private set; }
+
+    /// <summary>
+    /// Layered windows let clicks and drags fall through fully transparent pixels, so while a file is
+    /// over the fan we paint an almost-invisible background to make the whole fan a drop target.
+    /// </summary>
+    private void SetDropSurface(bool on)
+        => ItemsCanvas.Background = on ? new SolidColorBrush(Color.FromArgb(1, 255, 255, 255)) : null;
+
+    private static string[]? DroppedFiles(DragEventArgs e)
+        => e.Data.GetDataPresent(DataFormats.FileDrop) ? e.Data.GetData(DataFormats.FileDrop) as string[] : null;
+
+    private void OnDragOverFan(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        var files = DroppedFiles(e);
+        if (IsClosing || files is not { Length: > 0 } || Core.Downloads.DropIntoFolder.AllAlreadyIn(files, _folder)
+            || (e.AllowedEffects & DragDropEffects.Copy) == 0)
+        {
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+        e.Effects = DragDropEffects.Copy;
+        if (!_dragHovering)
+        {
+            _dragHovering = true;
+            SetDropSurface(true);
+            if (_views.FirstOrDefault(v => v.ViewModel.IsFolderItem) is { } folder)
+            {
+                SetHighlight(folder);
+                folder.ViewModel.Subtitle = files.Length == 1 ? "Drop to copy into Downloads" : $"Drop to copy {files.Length} files into Downloads";
+            }
+        }
+    }
+
+    private void OnDragLeaveFan(object sender, DragEventArgs e)
+    {
+        _dragHovering = false;
+        if (_views.FirstOrDefault(v => v.ViewModel.IsFolderItem) is { } folder) folder.ViewModel.Subtitle = OverflowText();
+        SetHighlight(null);
+        if (!IsDropMode) SetDropSurface(false);
+        else _dropCloseTimer.Start();
+    }
+
+    private void OnDropOnFan(object sender, DragEventArgs e)
+    {
+        e.Handled = true;
+        _dragHovering = false;
+        var files = DroppedFiles(e);
+        if (files is not { Length: > 0 } || Core.Downloads.DropIntoFolder.AllAlreadyIn(files, _folder))
+        {
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+        e.Effects = DragDropEffects.Copy;
+        if (_views.FirstOrDefault(v => v.ViewModel.IsFolderItem) is { } folder)
+            folder.ViewModel.Subtitle = files.Length == 1 ? "Copied into Downloads" : $"Copied {files.Length} files into Downloads";
+        SetHighlight(null);
+        FilesDropped?.Invoke(files);
+        // Let the new download appear at the bottom of the stack, then tidy up.
+        _dropCloseTimer.Interval = TimeSpan.FromMilliseconds(1800);
+        _dropCloseTimer.Start();
+    }
+
     private void OnDeactivated(object? sender, EventArgs e)
     {
         // Clicking anywhere outside the fan dismisses it – but never during a drag, and not while
         // our own context menu (which briefly takes activation) is showing.
-        if (IsDragging || SuppressDeactivation) return;
+        if (IsDragging || SuppressDeactivation || IsDropMode || _dragHovering) return;
         CloseFan();
     }
 
