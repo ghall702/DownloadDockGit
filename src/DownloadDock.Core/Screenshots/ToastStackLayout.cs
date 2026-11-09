@@ -8,7 +8,8 @@ public static class ToastStackLayout
     public const double MaxWidth = 220;
     public const double MaxHeight = 160;
     public const double MinSide = 48;
-    public const double Margin = 16;
+    /// <summary>Distance from the work-area edges; larger than the window's shadow margin so nothing overlaps the taskbar.</summary>
+    public const double Margin = 24;
     public const double Gap = 12;
 
     /// <summary>Fits an image into the thumbnail box, keeping its aspect ratio (panoramas/receipts stay usable).</summary>

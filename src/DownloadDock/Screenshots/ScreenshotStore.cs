@@ -106,6 +106,12 @@ internal sealed class ScreenshotStore
     /// <summary>Starts writing the PNG on a background thread and returns immediately.</summary>
     public ScreenshotItem Save(BitmapSource image, string source, IntPtr monitor)
     {
+        // The PNG is encoded on a worker thread, which needs a frozen (thread-safe) bitmap.
+        if (!image.IsFrozen)
+        {
+            if (image.CanFreeze) image.Freeze();
+            else { var copy = new WriteableBitmap(image); copy.Freeze(); image = copy; }
+        }
         var temporary = Settings().ScreenshotSaveMode == ScreenshotSaveMode.Temporary;
         var folder = temporary ? TemporaryFolder : PermanentFolder;
         var time = DateTime.Now;

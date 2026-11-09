@@ -84,7 +84,6 @@ internal sealed class ScreenshotToastWindow : Window
             Cursor = Cursors.Hand,
             RenderTransform = _slide,
             Effect = new DropShadowEffect { BlurRadius = 20, ShadowDepth = 4, Direction = 270, Opacity = 0.42, RenderingBias = RenderingBias.Performance },
-            ToolTip = "Drag into any app · Click to edit · Swipe right to dismiss",
         };
         RenderOptions.SetBitmapScalingMode(_card, BitmapScalingMode.HighQuality);
         AutomationProperties.SetName(_card, "Screenshot thumbnail");
@@ -110,8 +109,8 @@ internal sealed class ScreenshotToastWindow : Window
                 Dispatcher.BeginInvoke(() => ApplyRect(_targetRect));
         };
 
-        _card.MouseEnter += (_, _) => HoverChanged?.Invoke(this, true);
-        _card.MouseLeave += (_, _) => { if (!_dragging) HoverChanged?.Invoke(this, false); };
+        _card.MouseEnter += (_, _) => { Services.Log.Info("Thumbnail hover on"); HoverChanged?.Invoke(this, true); };
+        _card.MouseLeave += (_, _) => { if (!_dragging) { Services.Log.Info("Thumbnail hover off"); HoverChanged?.Invoke(this, false); } };
         _card.MouseLeftButtonDown += OnDown;
         _card.MouseMove += OnMove;
         _card.MouseLeftButtonUp += OnUp;
@@ -228,7 +227,7 @@ internal sealed class ScreenshotToastWindow : Window
             else _slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)) { EasingFunction = new CubicEase() });
             return;
         }
-        if (!_dragging) OpenRequested?.Invoke(this);
+        if (!_dragging) { Services.Log.Info("Thumbnail clicked"); OpenRequested?.Invoke(this); }
     }
 
     private void ResetPress()
@@ -251,6 +250,7 @@ internal sealed class ScreenshotToastWindow : Window
         var image = FileDragSource.CreateDragImage(_card.Background is ImageBrush b ? b.ImageSource : Item.Image, Math.Max(CardWidth, CardHeight), dpi, isIcon: false);
         var offset = new Point((pressInWindow.X - ShadowPad + 6) * dpi, (pressInWindow.Y - ShadowPad + 6) * dpi);
 
+        Services.Log.Info($"Thumbnail drag start: {path}");
         _card.Opacity = 0; // the drag image *is* the thumbnail now, like macOS
         FileDragResult result;
         try
@@ -267,6 +267,7 @@ internal sealed class ScreenshotToastWindow : Window
             _dragging = false;
             lease?.Dispose();
         }
+        Services.Log.Info($"Thumbnail drag finished: {result}");
         if (result != FileDragResult.Dropped)
             _card.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)));
         DragFinished?.Invoke(this, result);

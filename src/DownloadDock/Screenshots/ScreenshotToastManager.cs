@@ -78,6 +78,7 @@ internal sealed class ScreenshotToastManager : IDisposable
             window.ShowAt(rect, AnimationFactor);
         Restack(monitor.Handle, except: window);
         _tick.Start();
+        Log.Info($"Thumbnail shown for {item.Source} at {window.CurrentRect}");
         ToastShown?.Invoke(window);
         return window;
     }
@@ -158,6 +159,7 @@ internal sealed class ScreenshotToastManager : IDisposable
     {
         if (e.Closing || e.Window.IsDragging) return;
         e.Closing = true;
+        Log.Info($"Thumbnail dismissed ({(fade ? "after drop/open" : "timeout or user")})");
         var monitor = e.Window.Monitor.Handle;
         e.Window.Exit(AnimationFactor, fade);
         Restack(monitor, except: null);

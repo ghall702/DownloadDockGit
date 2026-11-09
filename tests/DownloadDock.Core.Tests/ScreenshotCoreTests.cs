@@ -178,10 +178,10 @@ public class ToastStackLayoutTests
     public void Newest_is_bottom_right_and_older_stack_upwards()
     {
         var pos = ToastStackLayout.Arrange(Work, new[] { (220.0, 124.0), (220.0, 124.0), (160.0, 160.0) });
-        Assert.Equal(1920 - 16 - 220, pos[0].X);
-        Assert.Equal(1032 - 16 - 124, pos[0].Y);
+        Assert.Equal(1920 - ToastStackLayout.Margin - 220, pos[0].X);
+        Assert.Equal(1032 - ToastStackLayout.Margin - 124, pos[0].Y);
         Assert.Equal(pos[0].Y - 12 - 124, pos[1].Y);
-        Assert.Equal(1920 - 16 - 160, pos[2].X);
+        Assert.Equal(1920 - ToastStackLayout.Margin - 160, pos[2].X);
         Assert.All(pos, p => Assert.True(p.Fits));
     }
 
