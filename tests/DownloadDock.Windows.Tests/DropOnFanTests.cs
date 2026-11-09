@@ -80,6 +80,10 @@ public class DropOnFanTests
             try
             {
                 fan.FilesDropped += files => dropped = files;
+                // The real source (the floating screenshot thumbnail) never takes focus, so the open fan
+                // stays open. The test's helper drag source window *does* activate itself, which would
+                // otherwise dismiss the fan like any click elsewhere.
+                fan.SuppressDeactivation = true;
                 var target = FolderItemCentre(fan);
                 outcome = DragWhilePumping(shot, target);
                 Assert.True(PumpUntil(() => dropped is not null, 5000), $"fan never received the drop ({outcome?.Result})");
@@ -145,6 +149,7 @@ public class DropOnFanTests
             try
             {
                 fan.FilesDropped += files => dropped = files;
+                fan.SuppressDeactivation = true;
                 var outcome = DragWhilePumping(inside, FolderItemCentre(fan));
                 Pump(800);
                 Assert.NotEqual(FileDragResult.Dropped, outcome.Result);

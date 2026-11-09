@@ -64,6 +64,11 @@ A thumbnail of the capture slides in just above the taskbar in the bottom-right 
   the screenshot file.
 - **Right-click** it for Open, Edit, Copy, Save to Screenshots folder (temporary mode only), Save As,
   Show in folder and Dismiss.
+- **Drop it into the Downloads dock:** drag the thumbnail onto the DownloadDock tray icon and hold it
+  there for a moment. The fan springs open (without taking focus), and dropping anywhere on it
+  **copies** the screenshot into your Downloads folder, where it appears at the bottom of the stack.
+  If the fan is already open, just drop onto it. Windows doesn't let apps accept drops on the tray icon
+  itself, so this works like spring-loaded Dock stacks on macOS.
 - New screenshots stack above older ones (up to four per screen). A thumbnail you're dragging is
   never moved or closed.
 - It never takes focus from the app you're working in, and it's excluded from later screenshots.
