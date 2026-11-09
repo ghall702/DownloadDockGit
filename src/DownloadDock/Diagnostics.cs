@@ -102,31 +102,57 @@ internal static class Diagnostics
         var w = (int)Math.Ceiling(fan.Width);
         var h = (int)Math.Ceiling(fan.Height);
 
-        // Composite the fan over a wallpaper-like background plus a taskbar strip for context.
-        var screenshot = new DrawingVisual();
+        // Render the fan's own visual tree 1:1, then composite it over a wallpaper-like background
+        // plus a taskbar strip for context.
+        root.UpdateLayout();
+        var fanBitmap = new RenderTargetBitmap(Math.Max(1, w), Math.Max(1, h), 96, 96, PixelFormats.Pbgra32);
+        fanBitmap.Render(root);
         var origin = root.PointToScreen(new Point(0, 0));
+        var taskbarTop = anchor.AnchorEdgeYDip - origin.Y;
+        var totalH = (int)Math.Max(h, taskbarTop + 48);
+        var screenshot = new DrawingVisual();
         using (var dc = screenshot.RenderOpen())
         {
             var bg = new LinearGradientBrush(Color.FromRgb(0x1E, 0x4F, 0xC7), Color.FromRgb(0x7F, 0xA8, 0xE8), 45);
-            dc.DrawRectangle(bg, null, new Rect(0, 0, w, h + 48));
-            var taskbarTop = anchor.AnchorEdgeYDip - origin.Y;
+            dc.DrawRectangle(bg, null, new Rect(0, 0, w, totalH));
             dc.DrawRectangle(new SolidColorBrush(dark ? Color.FromRgb(0x1C, 0x22, 0x33) : Color.FromRgb(0xEE, 0xF1, 0xF6)), null, new Rect(0, taskbarTop, w, 48));
             var iconX = anchor.AnchorXDip - origin.X;
-            dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)), null, new Rect(iconX - 20, taskbarTop + 4, 40, 40), 4, 4);
+            dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(40, 128, 128, 128)), null, new Rect(iconX - 20, taskbarTop + 4, 40, 40), 4, 4);
             var glyph = Tray.TrayIconRenderer.Render(24, dark);
             dc.DrawImage(glyph, new Rect(iconX - 12, taskbarTop + 12, 24, 24));
-            dc.DrawRectangle(new VisualBrush(root), null, new Rect(0, 0, root.ActualWidth, root.ActualHeight));
+            dc.DrawImage(fanBitmap, new Rect(0, 0, w, h));
         }
-        var rtb = new RenderTargetBitmap(w, (int)Math.Max(h, anchor.AnchorEdgeYDip - origin.Y + 48), 96, 96, PixelFormats.Pbgra32);
+        var rtb = new RenderTargetBitmap(w, totalH, 96, 96, PixelFormats.Pbgra32);
         rtb.Render(screenshot);
         SavePng(rtb, output);
+
+        var views = ((System.Windows.Controls.Canvas)root).Children.OfType<FanItemView>()
+            .OrderBy(v => v.SlotIndex)
+            .Select(v => new
+            {
+                slot = v.SlotIndex,
+                name = v.ViewModel.DisplayName,
+                left = System.Windows.Controls.Canvas.GetLeft(v),
+                top = System.Windows.Controls.Canvas.GetTop(v),
+                angle = v.Rotation.Angle,
+                scale = v.OpenScale.ScaleX,
+                opacity = v.Opacity,
+                actualWidth = v.ActualWidth,
+                actualHeight = v.ActualHeight,
+                thumbWidth = v.ViewModel.ThumbWidth,
+                thumbHeight = v.ViewModel.ThumbHeight,
+                isIcon = v.ViewModel.IsIcon,
+                hasThumbnail = v.ViewModel.HasThumbnail,
+            })
+            .ToList();
 
         WriteReport(output, new
         {
             folder,
             files = scan.Newest.Count,
             total = scan.TotalVisibleCount,
-            window = new { width = fan.Width, height = fan.Height, screenX = origin.X, screenY = origin.Y },
+            window = new { width = fan.Width, height = fan.Height, actualWidth = root.ActualWidth, actualHeight = root.ActualHeight, screenX = origin.X, screenY = origin.Y },
+            views,
             thumbnails = sources,
         });
         fan.CloseFan(animate: false);
