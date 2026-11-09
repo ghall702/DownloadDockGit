@@ -1,3 +1,4 @@
+using System.IO;
 namespace DownloadDock.Core.Tests;
 
 /// <summary>A temporary directory deleted after the test.</summary>
