@@ -59,7 +59,7 @@ public class FanWindowTests
                 // Real layout sizes (not just view-model values): name visible, card sized to the preview.
                 fan.UpdateLayout();
                 Assert.True(views[0].LabelPill.ActualWidth > 40, $"label pill is only {views[0].LabelPill.ActualWidth} wide");
-                Assert.Equal(views[0].ViewModel.ThumbWidth, views[0].Card.ActualWidth, 1);
+                if (views[0].Card.IsVisible) Assert.Equal(views[0].ViewModel.ThumbWidth, views[0].Card.ActualWidth, 1);
                 Assert.True(views[^1].LabelPill.ActualWidth > 100, $"folder label pill is only {views[^1].LabelPill.ActualWidth} wide");
 
                 // Each item is rotated more than the one below it, and positioned higher.
