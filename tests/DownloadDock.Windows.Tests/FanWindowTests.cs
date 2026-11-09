@@ -81,6 +81,32 @@ public class FanWindowTests
     }
 
     [Fact]
+    public void Item_view_binds_name_and_card_size_to_its_view_model()
+    {
+        Sta.Run(() =>
+        {
+            var vm = new FanItemViewModel(96) { DisplayName = "Project Brief.pdf" };
+            vm.SetThumbnail(new System.Windows.Media.Imaging.WriteableBitmap(150, 200, 96, 96, PixelFormats.Bgra32, null), isIcon: false);
+            var view = new FanItemView(vm, FanWindow.LabelWidth, FanWindow.LabelGap);
+            var host = new Window { Content = new Canvas { Children = { view } }, Width = 500, Height = 200, ShowActivated = false, Left = -2000, Top = -2000, WindowStyle = WindowStyle.None };
+            host.Show();
+            try
+            {
+                Pump(100);
+                host.UpdateLayout();
+                Assert.Equal("Project Brief.pdf", view.NameText.Text);
+                Assert.True(view.LabelPill.ActualWidth > 60, $"label pill is only {view.LabelPill.ActualWidth} wide");
+                Assert.Equal(72, view.Card.ActualWidth, 1);
+                Assert.Equal(96, view.Card.ActualHeight, 1);
+            }
+            finally
+            {
+                host.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void Empty_folder_shows_only_the_folder_item()
     {
         Sta.Run(() =>

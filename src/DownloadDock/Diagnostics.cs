@@ -94,6 +94,12 @@ internal static class Diagnostics
             sources.Add(new { file = entry.Name, source = task.IsCompletedSuccessfully ? task.Result?.Source : "failed", isIcon = task.IsCompletedSuccessfully && (task.Result?.IsIcon ?? true) });
         Wait(thumbs.GetIconAsync(folder, px), TimeSpan.FromSeconds(10));
 
+        // Capture WPF data-binding errors so the report shows any broken bindings.
+        var bindingLog = new StringWriter();
+        System.Diagnostics.PresentationTraceSources.Refresh();
+        System.Diagnostics.PresentationTraceSources.DataBindingSource.Listeners.Add(new System.Diagnostics.TextWriterTraceListener(bindingLog));
+        System.Diagnostics.PresentationTraceSources.DataBindingSource.Switch.Level = System.Diagnostics.SourceLevels.Warning;
+
         var fan = new FanWindow(thumbs);
         fan.Open(anchor, scan.Newest, scan.TotalVisibleCount, folder, settings, dark);
         Pump(TimeSpan.FromMilliseconds(600));
@@ -143,6 +149,11 @@ internal static class Diagnostics
                 thumbHeight = v.ViewModel.ThumbHeight,
                 isIcon = v.ViewModel.IsIcon,
                 hasThumbnail = v.ViewModel.HasThumbnail,
+                labelText = v.NameText.Text,
+                labelWidth = v.LabelPill.ActualWidth,
+                cardWidth = v.Card.ActualWidth,
+                cardHeight = v.Card.ActualHeight,
+                dataContextIsViewModel = v.DataContext is ViewModels.FanItemViewModel,
             })
             .ToList();
 
@@ -153,6 +164,7 @@ internal static class Diagnostics
             total = scan.TotalVisibleCount,
             window = new { width = fan.Width, height = fan.Height, actualWidth = root.ActualWidth, actualHeight = root.ActualHeight, screenX = origin.X, screenY = origin.Y },
             views,
+            bindingErrors = bindingLog.ToString(),
             thumbnails = sources,
         });
         fan.CloseFan(animate: false);
