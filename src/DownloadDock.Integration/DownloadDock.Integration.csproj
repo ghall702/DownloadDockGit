@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Shared integration contract between DownloadDock and Finder for Windows.
+    Deliberately dependency-free (BCL only) and UI-free so either application can reference it
+    as a project reference, Git submodule or NuGet package (see docs/FINDER_INTEGRATION.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>DownloadDock.Integration</RootNamespace>
+    <AssemblyName>DownloadDock.Integration</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- NuGet packaging (dotnet pack) -->
+    <PackageId>DownloadDock.Integration</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>DownloadDock</Authors>
+    <Description>Versioned named-pipe IPC contract, client and server for integrating with DownloadDock (Windows).</Description>
+    <PackageTags>downloaddock;ipc;named-pipes;windows</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DownloadDock.Integration.Tests" />
+  </ItemGroup>
+</Project>
