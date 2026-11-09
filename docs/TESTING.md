@@ -126,6 +126,21 @@ their data and the CPU stayed busy. The handler now reacts only to a real DPI ch
 coalesced, and only repositions the window. Regression tests assert exactly one layout per open
 and real element sizes, and the smoke-test step got 3–5× faster.
 
+### Finder integration (IPC)
+
+All of these drive real named pipes. The end-to-end tests drive the real `DownloadDock.exe`, with the
+test playing the part of Finder.
+
+| Area | Tests |
+|---|---|
+| Protocol | JSON round-trips, framing, size limits (oversized messages skipped, absurd lengths close the connection), malformed JSON, handshake required, handshake timeout, version negotiation and incompatible majors, unknown commands, invalid arguments |
+| Paths | `PathRules`: drive, UNC, mapped, `\\?\`, Unicode and spaces accepted; relative, device, `..`, wildcard, ADS and control-character paths rejected |
+| Robustness | Request timeouts, 300 simultaneous requests from three clients, per-connection `busy` limit, client pending-request bound, connection limit, a stalled subscriber can't block events for others, disconnects fail pending requests, reconnect after the server restarts, either side starting first |
+| Security (Windows) | Pipe DACL (logon SID allowed, NETWORK denied, protected), refusal to share a squatted pipe name, owner check on the live pipe |
+| Finder connector | Routing to Finder, Explorer fallback when Finder is missing, not running, failing, hanging (< 5 s) or incompatible; launching a registered Finder only when allowed; preferences; disabled integration; missing files open the parent folder; `filesReceived` batching and no duplicates with subscribed events |
+| Real app, end to end | Hello and capabilities, DownloadDock connecting back to a mock Finder, `getStatus`, `showFan` (opened / alreadyOpen), fan events, `closeFan`, a real file in Downloads raising `downloadDetected`, Win+Shift+3 reaching Finder as `filesReceived` and then as an event once subscribed, `openSettings`, unknown commands; `--open-settings` forwarded to the running instance; Finder reconnecting after DownloadDock is killed and restarted |
+| Finder-style drags | `Shell IDList Array`-only data objects (no `CF_HDROP`) parsed and dropped onto the fan |
+
 ## Not verified automatically: manual checklist
 
 These need a real Windows 11 desktop with the target apps signed in. **I have not run them**, so
@@ -212,10 +227,28 @@ drop, so these rows stay unchecked until someone actually tries them.
 | S7 | The **DownloadDock tray icon**: hold the drag on it until the fan opens, then drop | Fan springs open; the screenshot is copied into Downloads and appears at the bottom | ☐ not yet tested (fan drop and spring-load logic tested separately) |
 | S6 | **File Explorer** / the Downloads folder | PNG copied, original kept | ✅ Explorer verified automatically; ☐ Downloads-folder icon not yet tested |
 
+### Finder for Windows
+
+Finder for Windows doesn't exist yet in this repository, so **none of these have been run** against
+the real Finder. The automated tests use a mock Finder that speaks the same protocol.
+
+| # | Scenario | Expected | Status |
+|---|---|---|---|
+| F1 | Finder's "Show Downloads" button | DownloadDock fan opens above the tray icon, with focus | ☐ not yet tested |
+| F2 | *Show in Finder* on a fan item / screenshot thumbnail | Finder opens the folder with the file selected | ☐ not yet tested |
+| F3 | Quit Finder, then *Show in folder* | File Explorer opens with the file selected | ☐ not yet tested on a desktop (covered by connector tests) |
+| F4 | Drag from the fan into a Finder window | File copied, original stays in Downloads | ☐ not yet tested |
+| F5 | Drag from Finder onto the fan / tray icon | File copied into Downloads | ☐ not yet tested (IDList-only and `CF_HDROP` drops tested automatically) |
+| F6 | Start Finder first, then DownloadDock, and vice versa | Settings shows "Connected" within a few seconds | ☐ not yet tested on a desktop (covered by automated reconnect tests) |
+
 ## Reproducing the automated runs
 
 ```bash
 dotnet test tests/DownloadDock.Core.Tests -c Release
+```
+
+```bash
+dotnet test tests/DownloadDock.Integration.Tests -c Release
 ```
 
 ```bash

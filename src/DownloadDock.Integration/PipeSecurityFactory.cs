@@ -25,8 +25,11 @@ public static class PipeSecurityFactory
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         security.AddAccessRule(new PipeAccessRule(NetworkSid, PipeAccessRights.FullControl, AccessControlType.Deny));
         security.AddAccessRule(new PipeAccessRule(principal, PipeAccessRights.FullControl, AccessControlType.Allow));
-        if (identity.User is { } user)
-            security.SetOwner(user);
+        // Owner = the token's default owner. That is the user SID for a normal (non-elevated) process, and
+        // BUILTIN\Administrators for an elevated one. PipeOptions.CurrentUserOnly on the client compares
+        // the pipe owner with exactly this value, so using the user SID would break same-user elevated peers.
+        if ((identity.Owner ?? identity.User) is { } owner)
+            security.SetOwner(owner);
         return security;
     }
 

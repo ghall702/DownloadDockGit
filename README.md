@@ -117,6 +117,41 @@ Screen, Win+L…) and shortcuts that would block normal typing are refused.
 
 ---
 
+## Finder for Windows integration
+
+DownloadDock can work with **Finder for Windows**, a separate file-manager app. Both apps run on their
+own; when both are running, they talk over a local, per-user named pipe. There's no network port,
+service or admin rights involved.
+
+* **Finder → DownloadDock:** Finder can open the Downloads fan, open DownloadDock's settings, read its
+  status, and subscribe to events (new download, screenshot captured, file dropped into Downloads,
+  Downloads folder changed, fan opened or closed).
+* **DownloadDock → Finder:** *Open Downloads Folder* and *Show in folder* (on fan items and screenshot
+  thumbnails) open in Finder when it's available and preferred. Otherwise they open in File Explorer,
+  which is always the fallback. DownloadDock also tells Finder about new downloads, screenshots and
+  dropped files so its open windows can refresh.
+* **Files still move by drag-and-drop.** Dragging between DownloadDock and Finder uses the same
+  native OLE drag as every other app; the pipe never carries file contents.
+
+*Settings › Finder Integration* has: enable the integration, prefer Finder for folders, prefer Finder
+for *Show in folder*, start Finder when it isn't running, allow Finder to start DownloadDock, and a
+live connection status with the detected Finder version.
+
+Command line (used by Finder; a second launch forwards to the running instance and exits):
+
+| Argument | Effect |
+|---|---|
+| `--background` | Start (or keep running) in the tray without opening anything |
+| `--show-fan` | Open the Downloads fan |
+| `--open-settings` | Open Settings |
+
+Developer documentation: [`docs/FINDER_INTEGRATION.md`](docs/FINDER_INTEGRATION.md) (full protocol
+reference) and [`docs/FINDER_HANDOFF.md`](docs/FINDER_HANDOFF.md) (checklist for the Finder side). The
+contract library is `src/DownloadDock.Integration`, also published as the
+`DownloadDock.Integration-nupkg` CI artifact.
+
+---
+
 ## Install and use
 
 1. Download `DownloadDock.exe` (self-contained win-x64; .NET doesn't need to be installed). Get it from
