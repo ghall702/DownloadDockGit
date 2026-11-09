@@ -54,6 +54,11 @@ public class FanWindowTests
                 Assert.Equal("file0.pdf", views[0].ViewModel.DisplayName); // newest closest to the icon
                 Assert.Contains("12 more", views[^1].ViewModel.Subtitle);
 
+                // Real layout sizes (not just view-model values): name visible, card sized to the preview.
+                fan.UpdateLayout();
+                Assert.True(views[0].LabelPill.ActualWidth > 40, $"label pill is only {views[0].LabelPill.ActualWidth} wide");
+                Assert.True(views[^1].LabelPill.ActualWidth > 100, $"folder label pill is only {views[^1].LabelPill.ActualWidth} wide");
+
                 // Each item is rotated more than the one below it, and positioned higher.
                 for (var i = 1; i < views.Count; i++)
                 {

@@ -108,6 +108,31 @@ internal static class Diagnostics
         var w = (int)Math.Ceiling(fan.Width);
         var h = (int)Math.Ceiling(fan.Height);
 
+        // Layout probe: is the first item's layout valid, and does forcing a pass fix it?
+        object? layoutProbe = null;
+        if (((System.Windows.Controls.Canvas)root).Children.OfType<FanItemView>().FirstOrDefault() is { } probe)
+        {
+            object Snap() => new
+            {
+                label = probe.LabelPill.ActualWidth,
+                textDesired = probe.NameText.DesiredSize.Width,
+                card = probe.Card.ActualWidth,
+                textValid = probe.NameText.IsMeasureValid,
+                viewValid = probe.IsMeasureValid,
+                rootValid = root.IsMeasureValid,
+                windowValid = fan.IsMeasureValid,
+                visible = fan.IsVisible,
+            };
+            var before = Snap();
+            fan.UpdateLayout();
+            var afterUpdate = Snap();
+            probe.InvalidateMeasure();
+            probe.NameText.InvalidateMeasure();
+            fan.UpdateLayout();
+            var afterInvalidate = Snap();
+            layoutProbe = new { before, afterUpdate, afterInvalidate };
+        }
+
         // Render the fan's own visual tree 1:1, then composite it over a wallpaper-like background
         // plus a taskbar strip for context.
         root.UpdateLayout();
@@ -165,6 +190,7 @@ internal static class Diagnostics
             window = new { width = fan.Width, height = fan.Height, actualWidth = root.ActualWidth, actualHeight = root.ActualHeight, screenX = origin.X, screenY = origin.Y },
             views,
             bindingErrors = bindingLog.ToString(),
+            layoutProbe,
             thumbnails = sources,
         });
         fan.CloseFan(animate: false);
